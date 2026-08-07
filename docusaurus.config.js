@@ -1,4 +1,4 @@
-// @ts-check
+﻿// @ts-check
 // `@type` JSDoc annotations allow editor autocompletion and type checking
 // (when paired with `@ts-check`).
 // There are various equivalent ways to declare your Docusaurus config.
@@ -13,7 +13,7 @@ const config = {
   favicon: 'img/favicon.svg',
 
   // Set the production url of your site here
-  url: 'https://bulletinbored.github.io',
+  url: 'https://docs-1pe.pages.dev',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, you often have to set this to '/bulletinbored-core/'
   baseUrl: '/',
@@ -21,7 +21,7 @@ const config = {
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
   organizationName: 'bulletinbored', // Usually your GitHub org/user name.
-  projectName: 'bulletinbored-core', // Usually your repo name.
+  projectName: 'docs', // Usually your repo name.
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
@@ -138,7 +138,7 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} bulletinbored · BSD Zero Clause License`,
+        copyright: `Copyright Â© ${new Date().getFullYear()} bulletinbored Â· BSD Zero Clause License`,
       },
       prism: {
         theme: prismThemes.github,

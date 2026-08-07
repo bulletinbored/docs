@@ -8,7 +8,7 @@ description: bulletinbored documentation
 
 bulletinbored uses semantic versioning (SemVer): `MAJOR.MINOR.PATCH` — currently `0.1.0`.
 
-The project is released under the BSD Zero Clause (BSD-0). See [LICENSE](LICENSE) and [CLA.md](../CLA.md).
+The project is released under the BSD Zero Clause (BSD-0). See [LICENSE](https://github.com/bulletinbored/bulletinbored-core/blob/master/LICENSE) and [CLA.md](https://github.com/bulletinbored/bulletinbored-core/blob/master/CLA.md).
 
 ## What the numbers mean
 

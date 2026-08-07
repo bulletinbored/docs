@@ -6,7 +6,7 @@ description: bulletinbored documentation
 
 # Themes
 
-Distributed themes and contributions are accepted under the terms of the [CLA.md](../CLA.md).
+Distributed themes and contributions are accepted under the terms of the [CLA.md](https://github.com/bulletinbored/bulletinbored-core/blob/master/CLA.md).
 
 The forum ships with **freshbored**, a Bootstrap 5 dark navbar theme.
 

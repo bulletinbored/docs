@@ -13,7 +13,7 @@ const config = {
   favicon: 'img/favicon.svg',
 
   // Set the production url of your site here
-  url: 'https://docs-1pe.pages.dev',
+  url: 'https://docs.bulletinbored.net',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, you often have to set this to '/bulletinbored-core/'
   baseUrl: '/',

@@ -40,6 +40,7 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
+          routeBasePath: '/',
           sidebarPath: './sidebars.js',
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
@@ -87,15 +88,15 @@ const config = {
             items: [
               {
                 label: 'Getting Started',
-                to: '/docs/',
+                to: '/',
               },
               {
                 label: 'Architecture',
-                to: '/docs/architecture',
+                to: '/architecture',
               },
               {
                 label: 'Configuration',
-                to: '/docs/configuration',
+                to: '/configuration',
               },
             ],
           },
@@ -104,15 +105,15 @@ const config = {
             items: [
               {
                 label: 'Plugins',
-                to: '/docs/plugins',
+                to: '/plugins',
               },
               {
                 label: 'Themes',
-                to: '/docs/themes',
+                to: '/themes',
               },
               {
                 label: 'Managers',
-                to: '/docs/managers',
+                to: '/managers',
               },
             ],
           },

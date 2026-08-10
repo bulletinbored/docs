@@ -1,9 +1,7 @@
 ---
-sidebar_position: 1
 title: Architecture
 description: Understand the MVC structure, manager system, and directory layout.
 ---
-
 # Architecture
 
 ## Manager System (backend classes in `lib/`)

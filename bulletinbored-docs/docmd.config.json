@@ -1,0 +1,99 @@
+{
+  "title": "bulletinbored",
+  "url": "https://docs.bulletinbored.net",
+  "src": "docs",
+  "out": "site",
+  "logo": {
+    "light": "assets/images/logo.svg",
+    "dark": "assets/images/logo.svg",
+    "alt": "bulletinbored Logo",
+    "height": "32px"
+  },
+  "favicon": "assets/images/favicon.svg",
+  "layout": {
+    "spa": true,
+    "breadcrumbs": true,
+    "header": {
+      "enabled": true
+    },
+    "sidebar": {
+      "enabled": true,
+      "collapsible": true,
+      "defaultCollapsed": false,
+      "position": "left"
+    },
+    "optionsMenu": {
+      "position": "header",
+      "components": {
+        "search": true,
+        "themeSwitch": true
+      }
+    },
+    "footer": {
+      "style": "complete",
+      "copyright": "Copyright © 2026 bulletinbored · BSD Zero Clause License",
+      "branding": true,
+      "description": "Minimal, extensible forum software with zero dependencies.",
+      "columns": [
+        {
+          "title": "Docs",
+          "links": [
+            { "text": "Getting Started", "url": "/" },
+            { "text": "Architecture", "url": "/architecture/" },
+            { "text": "Configuration", "url": "/configuration/" }
+          ]
+        },
+        {
+          "title": "Development",
+          "links": [
+            { "text": "Plugins", "url": "/plugins/" },
+            { "text": "Themes", "url": "/themes/" },
+            { "text": "Managers", "url": "/managers/" }
+          ]
+        },
+        {
+          "title": "Community",
+          "links": [
+            { "text": "GitHub", "url": "https://github.com/bulletinbored/bulletinbored-core", "external": true },
+            { "text": "Plugin Catalog", "url": "https://github.com/bulletinbored/bulletinbored-core/blob/master/data/catalog.json", "external": true },
+            { "text": "License", "url": "https://github.com/bulletinbored/bulletinbored-core/blob/master/LICENSE", "external": true },
+            { "text": "CLA", "url": "https://github.com/bulletinbored/bulletinbored-core/blob/master/CLA.md", "external": true }
+          ]
+        }
+      ]
+    }
+  },
+  "menubar": {
+    "enabled": true,
+    "position": "top",
+    "left": [
+      { "text": "Docs", "url": "/" },
+      { "text": "Architecture", "url": "/architecture/" },
+      { "text": "Configuration", "url": "/configuration/" },
+      { "text": "Plugins", "url": "/plugins/" },
+      { "text": "Themes", "url": "/themes/" }
+    ],
+    "right": [
+      { "text": "GitHub", "url": "https://github.com/bulletinbored/bulletinbored-core", "external": true }
+    ]
+  },
+  "theme": {
+    "name": "default",
+    "appearance": "system",
+    "codeHighlight": true,
+    "customCss": ["assets/css/custom.css"]
+  },
+  "minify": true,
+  "autoTitleFromH1": true,
+  "copyCode": true,
+  "pageNavigation": true,
+  "plugins": {
+    "seo": {
+      "defaultDescription": "bulletinbored — minimal, extensible forum software with zero dependencies."
+    },
+    "git": {
+      "commitHistory": true,
+      "maxCommits": 5
+    }
+  }
+}

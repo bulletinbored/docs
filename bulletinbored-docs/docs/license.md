@@ -1,9 +1,7 @@
 ---
-sidebar_position: 1
 title: License
 description: BSD Zero Clause License.
 ---
-
 # License
 
 bulletinbored is released under the **BSD Zero Clause License** (BSD-0).

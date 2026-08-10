@@ -1,9 +1,7 @@
 ---
-sidebar_position: 1
 title: Localization
 description: bulletinbored documentation
 ---
-
 # Localization (i18n)
 
 The forum includes a basic translation system managed from the admin dashboard.

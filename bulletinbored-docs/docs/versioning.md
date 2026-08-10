@@ -1,9 +1,7 @@
 ---
-sidebar_position: 1
 title: Versioning
 description: bulletinbored documentation
 ---
-
 # Versioning
 
 bulletinbored uses semantic versioning (SemVer): `MAJOR.MINOR.PATCH` — currently `0.1.0`.

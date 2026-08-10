@@ -1,9 +1,7 @@
 ---
-sidebar_position: 1
 title: Managers
 description: bulletinbored documentation
 ---
-
 # Managers
 
 ## Plugin Manager (`admin_plugins`)

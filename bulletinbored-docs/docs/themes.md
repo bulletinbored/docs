@@ -1,9 +1,7 @@
 ---
-sidebar_position: 1
 title: Theme Development
 description: bulletinbored documentation
 ---
-
 # Themes
 
 Distributed themes and contributions are accepted under the terms of the [CLA.md](https://github.com/bulletinbored/bulletinbored-core/blob/master/CLA.md).

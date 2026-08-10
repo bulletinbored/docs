@@ -1,9 +1,7 @@
 ---
-sidebar_position: 2
 title: Configuration
 description: Database, email, themes, localization, and update server settings.
 ---
-
 # Configuration
 
 Edit `config.php` to customize your installation.

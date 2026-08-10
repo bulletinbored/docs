@@ -1,9 +1,7 @@
 ---
-sidebar_position: 1
 title: Installation
 description: From zero to working forum in under a minute.
 ---
-
 # Installation
 
 From zero to working forum in under a minute.

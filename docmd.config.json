@@ -83,6 +83,7 @@
     "codeHighlight": true,
     "customCss": ["assets/css/custom.css"]
   },
+  "customJs": ["assets/js/logo-link.js"],
   "minify": true,
   "autoTitleFromH1": true,
   "copyCode": true,

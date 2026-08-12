@@ -10,14 +10,24 @@ description: Understand the MVC structure, manager system, and directory layout.
 - **ThemeManager** — handles theme discovery, activation, and CSS URL/path resolution
 - **UpdateManager** — handles version tracking and update checks for core, plugins, and themes
 
-All managers are instantiated at the top of `index.php` and are fully integrated into the routing layer and admin panel.
+All managers are instantiated in `index.php` (after the bootstrap) and are fully integrated into the routing layer and admin panel.
 
-## Single-File MVC (index.php)
+## Layered Structure (no framework, zero dependencies)
 
-- All core logic in one file for easy upload
+The application is still a single upload with **no Composer, no Docker, no build step** — but the old single `index.php` has been split into small, focused files under `src/`:
+
+- `index.php` — the thin front controller. It only wires the bootstrap, database, managers and router, then delegates request handling to `src/actions.php`.
+- `src/bootstrap.php` — session start, install check, `config.php` load, i18n setup (`t()`/`pt()`/`tt()`) and a hand-written PSR-4 autoloader for the `Bulletin\` namespace (no Composer needed).
+- `src/helpers.php` — pure helper functions: `slugify()`, `url()`, `escape()`, `base_url()`, CSRF helpers, presentation helpers (`time_ago()`, `render_avatar()`, `fetch_threads()`, ...) and `send_email()`.
+- `src/Router.php` — maps the incoming request path to `$_GET['action']` (pretty URLs).
+- `src/setup.php` — ensures directories exist and initialises the database (SQLite/MySQL schema, defaults).
+- `src/actions.php` — the request dispatch / routing table. Contains the per-action logic (home, thread, login, admin panels, ...).
+
+Key traits that remain unchanged:
+
 - SQLite by default, MySQL configurable via `config.php`
 - Session-based authentication
-- Simple routing via `$_GET['action']`
+- Routing via `$_GET['action']`, resolved from pretty URLs by `src/Router.php`
 - SEO-friendly URLs via `.htaccess` rewrite rules
 
 ## SEO-Friendly URLs
@@ -35,10 +45,16 @@ Old query-string URLs (`?action=thread&id=1`) still work internally.
 ```
 /bulletinbored/
 ├── config.php             # Configuration (database, email, site, theme, localization)
-├── index.php              # Main application (all-in-one)
+├── index.php              # Thin front controller (bootstrap + routing only)
 ├── .htaccess              # SEO-friendly URL rewrites
 ├── router.php             # Router for PHP built-in server
 ├── lib/                   # Backend managers (PluginManager, ThemeManager, UpdateManager)
+├── src/                   # Application core (no framework)
+│   ├── bootstrap.php      # session, config, i18n, PSR-4 autoloader
+│   ├── helpers.php        # slugify, url, escape, base_url, CSRF, fetch_threads, send_email, ...
+│   ├── Router.php         # Bulletin\Router — pretty-URL → $_GET['action']
+│   ├── setup.php          # directory checks + database initialisation
+│   └── actions.php        # request dispatch / routing table
 ├── views/                 # Template files
 │   ├── header.php         # Shared frontend header/footer (loads theme CSS)
 │   ├── home.php           # Thread listing with sidebar categories + pagination

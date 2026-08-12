@@ -63,20 +63,6 @@
       ]
     }
   },
-  "menubar": {
-    "enabled": true,
-    "position": "top",
-    "left": [
-      { "text": "Docs", "url": "/" },
-      { "text": "Architecture", "url": "/architecture/" },
-      { "text": "Configuration", "url": "/configuration/" },
-      { "text": "Plugins", "url": "/plugins/" },
-      { "text": "Themes", "url": "/themes/" }
-    ],
-    "right": [
-      { "text": "GitHub", "url": "https://github.com/bulletinbored/bulletinbored-core", "external": true }
-    ]
-  },
   "theme": {
     "name": "default",
     "appearance": "system",

@@ -171,69 +171,19 @@ The installer automatically detects a single top-level folder and flattens it.
 - **Install**: upload a ZIP to add the plugin
 - **Update**: the Update Manager can apply new versions as ZIP packages
 
-## Example: editbored Plugin
-
-The forum ships with the **editbored** plugin as an example of a folder-based plugin:
-
-- Uses a WYSIWYG Markdown editor on thread/reply forms
-- Injects CSS, JS, and user data via hooks
-- Provides an image upload endpoint (`upload.php`)
-- Implements @mentions with a user autocomplete dropdown
-
-See `plugins/editbored/` for the full implementation.
-
-## Example: bellbored Plugin
-
-The forum ships with the **bellbored** notification center plugin:
-
-- Adds a notification bell icon to the navbar for logged-in users
-- Creates notifications when new threads or replies are posted in watched threads
-- Sends welcome notifications to newly registered users
-- Stores notifications in a dedicated `notifications` database table
-- Supports marking notifications as read (single or bulk)
-- AJAX-powered dropdown with unread count badge
-
 ### Directory Structure
 
 ```
 plugins/
-└── bellbored/
+└── myplugin/
     ├── manifest.json
-    ├── bellbored.php
+    ├── myplugin.php
     ├── api.php
     ├── assets/
     │   ├── css/
-    │   │   └── bellbored.css
+    │   │   └── myplugin.css
     │   └── js/
-    │       └── bellbored.js
-    └── lang/
-        └── en.php
-```
-
-## Example: textmebored Plugin
-
-The forum ships with the **textmebored** private messaging plugin:
-
-- Adds an envelope icon to the navbar for logged-in users
-- Provides a conversation list with unread message indicators
-- Opens a modal conversation view for reading and sending private messages
-- Stores messages in a dedicated `private_messages` database table
-- Supports real-time message sending via AJAX
-- Auto-marks messages as read when opening a conversation
-
-### Directory Structure
-
-```
-plugins/
-└── textmebored/
-    ├── manifest.json
-    ├── textmebored.php
-    ├── api.php
-    ├── assets/
-    │   ├── css/
-    │   │   └── textmebored.css
-    │   └── js/
-    │       └── textmebored.js
+    │       └── myplugin.js
     └── lang/
         └── en.php
 ```
@@ -295,12 +245,12 @@ only from the `core` scope and is unaffected by plugin translations.
 $pluginManager->discover();
 $pluginManager->getAll();
 $pluginManager->getEnabled();
-$pluginManager->getByName('editbored');
+$pluginManager->getByName('myplugin');
 
 // State
-$pluginManager->isEnabled('editbored');
-$pluginManager->enable('editbored');
-$pluginManager->disable('editbored');
+$pluginManager->isEnabled('myplugin');
+$pluginManager->enable('myplugin');
+$pluginManager->disable('myplugin');
 
 // Localization
 $pluginManager->loadTranslations($lang);   // loads plugin/lang/{$lang}.php into the plugin:<name> scope
@@ -308,10 +258,10 @@ $pluginManager->loadTranslations($lang);   // loads plugin/lang/{$lang}.php into
 // Lifecycle
 $pluginManager->loadEnabled();
 $pluginManager->installFromZip('/path/to/plugin.zip');
-$pluginManager->delete('editbored');
+$pluginManager->delete('myplugin');
 
 // Versioning
-$pluginManager->getVersion('editbored');
+$pluginManager->getVersion('myplugin');
 
 // Hooks
 $pluginManager->addHook('after_thread', $callback);

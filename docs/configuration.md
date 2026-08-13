@@ -40,6 +40,7 @@ $config = [
     'theme_manifest' => __DIR__.'/data/themes.json',
     'update_manifest' => __DIR__.'/data/updates.json',
     'update_server' => '', // Remote update server URL (empty to disable)
+    'update_mirror' => '', // Static mirror base URL for language files (empty = default extend.bulletinbored.net)
 ];
 ```
 
@@ -93,6 +94,25 @@ Configure the default language and available languages:
 'default_lang' => 'en',
 'available_langs' => ['en', 'it'],
 ```
+
+## Rate Limiting (Security Hardening)
+
+Sensitive actions are throttled by a dependency-free, file-based rate limiter
+(`rate_limit()` in `src/helpers.php`). Each `(action, key)` bucket keeps a sliding
+window of timestamps in `data/ratelimit/{bucket}.json`. The default limits applied
+in `src/actions.php` are:
+
+| Action | Max attempts | Window | Bucket key |
+|---|---|---|---|
+| `login` | 5 | 900s (15 min) | IP |
+| `register` | 5 | 3600s (1 h) | IP |
+| `forgot_password` | 5 | 3600s (1 h) | IP |
+| `reset_password` | 10 | 3600s (1 h) | IP |
+| `new_thread` | 20 | 3600s (1 h) | user id (0 if guest) |
+| `reply` | 30 | 3600s (1 h) | user id (0 if guest) |
+
+The `data/ratelimit/` directory is created automatically. No configuration is
+required; the limits are hard-coded in the action handlers.
 
 ## Updates
 

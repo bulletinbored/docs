@@ -64,12 +64,14 @@ The Theme Manager discovers all themes in `themes/`, tracks the active theme, an
 
 ## Language Manager (`admin_langs`)
 
-The Language Manager lets you upload and delete localization PHP files from the dashboard.
+The Language Manager lets you upload and delete localization PHP files from the dashboard, and keeps them in sync with a static language mirror.
 
 - Upload a file by choosing a language code (e.g. `fr`) and selecting a PHP file that returns a translation array
 - Files are saved to `lang/{code}.php`
 - Delete any language file except the default one
 - Language files are automatically picked up by the translation system
+- Local change tracking is stored in `data/lang-meta.json` (per-language `sha` + `updated` timestamp)
+- The manager reads the list of available languages from a static mirror (`{update_mirror}/langs.json`, default `https://extend.bulletinbored.net/langs.json`) and can pull updated language files when their checksum changes. Override the mirror with the `update_mirror` setting in `config.php`.
 
 ## Update Manager (`admin_updates`)
 

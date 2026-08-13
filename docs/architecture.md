@@ -46,9 +46,11 @@ Old query-string URLs (`?action=thread&id=1`) still work internally.
 /bulletinbored/
 ├── config.php             # Configuration (database, email, site, theme, localization)
 ├── index.php              # Thin front controller (bootstrap + routing only)
+├── router.php             # Router for PHP built-in server (dev)
 ├── .htaccess              # SEO-friendly URL rewrites
-├── router.php             # Router for PHP built-in server
 ├── lib/                   # Backend managers (PluginManager, ThemeManager, UpdateManager)
+│   ├── BbPdo.php          # PDO wrapper used by the data layer
+│   ├── repo_install.php   # Repository-based install/upgrade helpers
 ├── src/                   # Application core (no framework)
 │   ├── bootstrap.php      # session, config, i18n, PSR-4 autoloader
 │   ├── helpers.php        # slugify, url, escape, base_url, CSRF, fetch_threads, send_email, ...

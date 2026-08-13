@@ -64,67 +64,6 @@ function myplugin_init() {
 }
 ```
 
-## Asset Loading
-
-Plugins can inject assets (CSS, JS) into the page via hooks:
-
-```php
-function myplugin_init() {
-    global $pluginManager;
-    $pluginManager->addHook('frontend_before_render', function() {
-        echo '<link href="/plugins/myplugin/assets/css/myplugin.css" rel="stylesheet">' . "\n";
-        echo '<script src="/plugins/myplugin/assets/js/myplugin.js"></script>' . "\n";
-    });
-}
-```
-
-## Global Data for JS
-
-You can pass data to your JS via global variables:
-
-```php
-function myplugin_init() {
-    global $pluginManager;
-    $pluginManager->addHook('frontend_before_render', function() {
-        echo '<script>';
-        echo 'window.MyPlugin = window.MyPlugin || {};';
-        echo 'window.MyPlugin.endpoint = "' . htmlspecialchars('/plugins/myplugin/endpoint.php', ENT_QUOTES) . '";';
-        echo 'window.MyPlugin.csrfToken = "' . htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES) . '";';
-        echo '</script>' . "\n";
-    });
-}
-```
-
-## Asset Loading
-
-Plugins can inject assets (CSS, JS) into the page via hooks:
-
-```php
-function myplugin_init() {
-    global $pluginManager;
-    $pluginManager->addHook('frontend_before_render', function() {
-        echo '<link href="/plugins/myplugin/assets/css/myplugin.css" rel="stylesheet">' . "\n";
-        echo '<script src="/plugins/myplugin/assets/js/myplugin.js"></script>' . "\n";
-    });
-}
-
-## Global Data for JS
-
-You can pass data to your JS via global variables:
-
-```php
-function myplugin_init() {
-    global $pluginManager;
-    $pluginManager->addHook('frontend_before_render', function() {
-        echo '<script>';
-        echo 'window.MyPlugin = window.MyPlugin || {};';
-        echo 'window.MyPlugin.endpoint = "' . htmlspecialchars('/plugins/myplugin/endpoint.php', ENT_QUOTES) . '";';
-        echo 'window.MyPlugin.csrfToken = "' . htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES) . '";';
-        echo '</script>' . "\n";
-    });
-}
-```
-
 ## Directory Structure
 
 ```

@@ -28,7 +28,7 @@ description: bulletinbored — minimal, extensible forum software with zero depe
 1. Upload all files to a PHP-enabled web server (PHP 8.x, PDO/SQLite or PDO/MySQL extension)
 2. Ensure Apache `mod_rewrite` is enabled (for SEO-friendly URLs)
 3. Ensure the `data/`, `uploads/`, and `uploads/avatars/` directories are writable by the web server
-4. Visit the site in your browser — the 2-step installer starts automatically
+4. Visit the site in your browser — the 3-step installer starts automatically
 
 See [Installation](installation) for the full guide.
 

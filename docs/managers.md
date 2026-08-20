@@ -89,6 +89,17 @@ If `update_server` points to a GitHub repository, the Update Manager uses the Gi
 
 Plugins and themes are checked against the repositories listed in `data/catalog.json`. If a catalog entry includes a `repo` URL pointing to GitHub, the Update Manager queries the GitHub Releases API for the latest tag.
 
+Each catalog entry can carry two flags:
+
+- `official` (`true`/`false`) — whether the component is curated in the official
+  catalog. In **catalog-only mode** (`$config['allow_catalog_only'] = true`) only
+  `official: true` entries may be installed.
+- `author_type` (`"first_party"` / `"third_party"`) — distinguishes plugins/themes
+  developed by the bulletinbored team from community-developed ones that are still
+  curated into the official catalog. It is purely descriptive: the catalog UI shows
+  **"Developed by bulletinbored team"** / **"Developed by third party"** instead of
+  a generic "official" label, and it does not affect the `official` install gate.
+
 ### GitHub token
 
 GitHub API has a rate limit of 60 requests/hour for unauthenticated requests. You can provide a `github_token` in `config.php` to raise the limit to 5000 requests/hour. See [Configuration](configuration.md#github-token) for details.

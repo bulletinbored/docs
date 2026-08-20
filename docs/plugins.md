@@ -33,7 +33,14 @@ Folder-based plugins use `manifest.json`:
     "version": "1.0.0",
     "author": "mlzog",
     "description": "WYSIWYG Markdown editor",
-    "bootstrap": "editbored.php"
+    "bootstrap": "editbored.php",
+    "files": [
+        "editbored.php",
+        "manifest.json",
+        "assets/css/editbored.css",
+        "assets/js/editbored.js",
+        "lang/en.php"
+    ]
 }
 ```
 
@@ -207,3 +214,9 @@ $pluginManager->addHook('after_thread', $callback);
 $pluginManager->removeHook('after_thread', $callback);
 $pluginManager->runHook('after_thread', $threadId);
 ```
+
+## Third-party plugins
+
+Plugins distributed through the catalog may be developed by community contributors, not by the bulletinbored team. The bulletinbored team does **not** assume any responsibility for the code, security, or behavior of third-party plugins. Install and use them at your own risk.
+
+If you encounter a malicious or problematic plugin, please report it on the official forum: **www.bulletinbored.net/forum**.

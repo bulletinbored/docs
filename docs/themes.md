@@ -4,101 +4,123 @@ description: bulletinbored documentation
 ---
 # Themes
 
-Distributed themes and contributions are accepted under the terms of the [CLA.md](https://github.com/bulletinbored/bulletinbored-core/blob/master/CLA.md).
+Create themes as subdirectories in `themes/` with a `manifest.json` and a `style.css` file. Themes are distributed via ZIP packages or through the admin catalog.
 
-The forum ships with **freshbored**, a Bootstrap 5 dark navbar theme.
+## Theme Conventions
 
-## Theme Structure
+- **Folder-based theme**: a subdirectory in `themes/` with a `manifest.json` and a `style.css` file (e.g., `themes/freshbored/`)
+- The `style.css` file must contain theme metadata at the top (e.g., theme name, version, author)
 
-A theme is a folder in `themes/` containing at minimum a `style.css` file.
+## Theme Metadata
 
-```
-themes/mytheme/
-├── style.css          # Required
-└── manifest.json      # Optional
-```
-
-## manifest.json
-
-Optional metadata file:
+Themes use `manifest.json` for additional metadata:
 
 ```json
 {
-    "name": "My Theme",
+    "name": "freshbored",
     "version": "1.0.0",
-    "author": "Your Name",
-    "description": "Theme description"
+    "author": "mlzog",
+    "description": "Default frontend theme for bulletinbored. Bootstrap 5 based, sidebar driven discussion layout."
 }
 ```
 
-## Localization
-
-Themes can be localized independently from the core and from plugins. Each theme
-gets its own translation **scope** (`theme:<name>`), so theme strings never
-collide with the core or with plugins.
-
-Place translation files under a `lang/` directory using the language code as the
-filename:
+And `style.css` must contain:
 
 ```
-themes/mytheme/
-├── style.css          # Required
-├── manifest.json      # Optional
-└── lang/
-    ├── en.php
-    └── it.php
+/*
+Theme Name: freshbored
+Theme Version: 1.0.0
+Theme Author: mlzog
+Theme Description: Default frontend theme for bulletinbored
+*/
 ```
 
-Each file returns an associative array:
+## Directory Structure
 
-```php
-<?php
-return [
-    'tagline' => 'Welcome to the forum',
-];
+```
+themes/
+├── freshbored/                 # Example theme
+│   ├── manifest.json           # Optional: theme metadata
+│   ├── style.css               # Required: theme styles (must contain metadata at top)
+│   ├── layout/
+│   │   └── default.php
+│   ├── assets/
+│   │   ├── css/
+│   │   │   └── style.css
+│   │   └── js/
+│   │       └── main.js
+│   └── lang/
+│       └── en.php              # Optional: translations
+└── someother/                  # Another example theme
 ```
 
-Strings are loaded automatically into the `theme:<name>` scope based on the
-active language. Use the `tt()` helper to translate:
-
-```php
-echo tt('mytheme', 'tagline');                  // -> 'Welcome to the forum'
-echo tt('mytheme', 'hello', ['name' => 'Joe']); // with {name} placeholder
-```
-
-You may also call the core translation function directly with an explicit scope:
-
-```php
-echo t('tagline', [], 'theme:mytheme');
-```
-
-If a key is missing in the theme's language file, the key itself is returned
-(untranslated) — so a theme that ships no `lang/` directory still works
-unchanged. The core translation function `t($key, $params)` continues to resolve
-only from the `core` scope and is unaffected by theme translations.
-
-## Activating a Theme
-
-1. Place the theme folder in `themes/`
-2. Go to **Admin Panel → Themes** and click **Activate**
-3. Or set the theme in `config.php`: `'theme' => 'mytheme'`
-
-## Shipping a Theme as ZIP
+## Shipping as ZIP
 
 To distribute a theme as a ZIP package:
 
-1. Create a folder with the theme name (e.g., `mytheme/`)
-2. Add `style.css` and optional `manifest.json`
-3. ZIP the folder (the ZIP should contain the folder itself, not loose files)
-4. Upload via **Admin Panel → Themes → Install Theme**
+1. Package your theme so that the theme folder is at the root of the ZIP
+2. The folder should contain `style.css` and optional `manifest.json` at the root
+3. Upload via **Admin Panel → Themes → Install Theme**
 
-## CSS Classes Used
+Recommended ZIP layout:
 
-The theme should style the following classes:
+```
+freshbored-1.0.0.zip
+├── freshbored/
+│   ├── style.css
+│   ├── manifest.json
+│   ├── layout/
+│   │   └── default.php
+│   ├── assets/
+│   │   ├── css/
+│ │   │   └── style.css
+│   │   └── js/
+│   │       └── main.js
+│   └── lang/
+│       └── en.php
+```
 
-- `.navbar-forum` — main navigation bar
-- `.container` — main content wrapper
-- `.footer` — footer area
-- `.admin-layout` — admin panel layout
+The installer automatically detects the theme folder and installs it.
 
-Fields and buttons use Bootstrap 5 classes by default.
+## Managing Themes
+
+- **Enable / Disable**: toggle theme state without deleting files
+- **Delete**: removes the theme files (protected: `freshbored` cannot be deleted)
+- **Activate**: set as active theme
+- **Install**: upload a ZIP to add the theme
+- **Update**: the Update Manager can apply new versions as ZIP packages
+
+### Directory Structure
+
+```
+themes/
+└── freshbored/
+    ├── style.css
+    ├── manifest.json
+    ├── layout/
+    │   └── default.php
+    ├── assets/
+    │   ├── css/
+    │   │   └── style.css
+    │   └── js/
+    │       └── main.js
+    └── lang/
+        └── en.php
+```
+
+## File Integrity Verification (New)
+
+When installing a theme from a ZIP (via admin panel or catalog), the installer can verify that the extracted files match the `files` list declared in the theme's `manifest.json`. This prevents installation of tampered packages.
+
+- **Enabled by default** (`$config['theme_verify_files'] = true` in `config.php`)
+- **Disabled** by setting `$config['theme_verify_files'] = false`
+- Themes without a `files` key in `manifest.json` are skipped by the check
+- To disable: set `$config['theme_verify_files'] = false` and restart the forum
+
+## Third-party themes
+
+Themes distributed through the catalog may be developed by community contributors, not by the bulletinbored team. The bulletinbored team does **not** assume any responsibility for the code, security, or behavior of third-party themes. Install and use them at your own risk.
+
+If you encounter a malicious or problematic theme, please report it on the official forum: **www.bulletinbored.net/forum**.
+
+## Hook System

@@ -19,7 +19,7 @@ Since this is `0.x`, the API is still considered unstable: minor releases may br
 ## How to bump a version
 
 1. Edit the `VERSION` file at the project root (single line, e.g. `0.1.0`)
-2. Update the version constant in `config.php` if you keep an inline fallback there
+2. Update the version in `config.json` if you keep an inline fallback there
 3. If you ship updates via the Update Manager, make sure `versions.json` on your update server exposes the new version
 4. Tag the release in git:
 
@@ -33,7 +33,7 @@ Since this is `0.x`, the API is still considered unstable: minor releases may br
 ## Where the version lives in code
 
 - `VERSION` — single-source-of-truth file at the project root
-- `config.php` — `$config['version']` is loaded from `VERSION` at boot time
+- `config.json` — `version` is loaded from `VERSION` at boot time
 - `data/updates.json` — stores installed versions for core, plugins, and themes
 
 ## Version checks

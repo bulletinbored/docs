@@ -71,15 +71,15 @@ The Language Manager lets you upload and delete localization PHP files from the 
 - Delete any language file except the default one
 - Language files are automatically picked up by the translation system
 - Local change tracking is stored in `data/lang-meta.json` (per-language `sha` + `updated` timestamp)
-- The manager reads the list of available languages from a static mirror (`{update_mirror}/langs.json`, default `https://extend.bulletinbored.net/langs.json`) and can pull updated language files when their checksum changes. Override the mirror with the `update_mirror` setting in `config.php`.
+- The manager reads the list of available languages from a static mirror (`{update_mirror}/langs.json`, default `https://extend.bulletinbored.net/langs.json`) and can pull updated language files when their checksum changes. Override the mirror with the `update_mirror` setting in `config.json`.
 
 ## Update Manager (`admin_updates`)
 
 The Update Manager tracks installed versions of the core, plugins, and themes, and can apply updates.
 
 - Version tracking is stored in `data/updates.json`
-- Core version is loaded dynamically from the `VERSION` file via `config.php`
-- Remote update checks require setting `'update_server'` in `config.php`
+- Core version is loaded dynamically from the `VERSION` file via `config.json`
+- Remote update checks require setting `"update_server"` in `config.json`
 
 ### Core updates
 
@@ -102,7 +102,7 @@ Each catalog entry can carry two flags:
 
 ### GitHub token
 
-GitHub API has a rate limit of 60 requests/hour for unauthenticated requests. You can provide a `github_token` in `config.php` to raise the limit to 5000 requests/hour. See [Configuration](configuration.md#github-token) for details.
+GitHub API has a rate limit of 60 requests/hour for unauthenticated requests. You can provide a `github_token` in `config.json` to raise the limit to 5000 requests/hour. See [Configuration](configuration.md#github-token) for details.
 
 ### Legacy update server
 

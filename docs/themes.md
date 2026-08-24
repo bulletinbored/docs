@@ -112,10 +112,10 @@ themes/
 
 When installing a theme from a ZIP (via admin panel or catalog), the installer can verify that the extracted files match the `files` list declared in the theme's `manifest.json`. This prevents installation of tampered packages.
 
-- **Enabled by default** (`$config['theme_verify_files'] = true` in `config.php`)
-- **Disabled** by setting `$config['theme_verify_files'] = false`
+- **Enabled by default** (`"theme_verify_files": true` in `config.json`)
+- **Disabled** by setting `"theme_verify_files": false`
 - Themes without a `files` key in `manifest.json` are skipped by the check
-- To disable: set `$config['theme_verify_files'] = false` and restart the forum
+- To disable: set `"theme_verify_files": false` and restart the forum
 
 ## Third-party themes
 

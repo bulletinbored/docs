@@ -9,7 +9,7 @@ description: bulletinbored — minimal, extensible forum software with zero depe
 ## Why bulletinbored?
 
 - ⚡ **Zero Dependencies** — No Composer, no Docker, no Node.js. Just PHP 8.x with PDO. Upload the files and you're live.
-- 🗄️ **SQLite & MySQL** — Choose your database. SQLite works out of the box; MySQL is supported via `config.php`.
+- 🗄️ **SQLite & MySQL** — Choose your database. SQLite works out of the box; MySQL is supported via `config.json`.
 - 🔌 **Plugin System** — Extend functionality with simple PHP files. Hooks let you attach to forum events.
 - 🎨 **Theme System** — Themes work like plugins: create a folder with a `style.css` and change the forum's look.
 - 🔗 **SEO-Friendly URLs** — Clean URLs like `/thread/1-slug` and `/category/2-name` via rewrite rules.

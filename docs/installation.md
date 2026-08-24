@@ -26,13 +26,13 @@ The `data/`, `uploads/`, and `uploads/avatars/` directories must be writable by 
 
 ## Step 4: Run the Installer
 
-Visit the site in your browser. If `config.php` is missing, the 3-step installer starts automatically:
+Visit the site in your browser. If `config.json` is missing, the 3-step installer starts automatically:
 
 - **Step 1**: Choose your database (SQLite or MySQL) and test the connection
 - **Step 2**: Set your site name, administrator account, and email
 - **Step 3**: Optionally install suggested plugins to make the installation more complete. The core ships only the basic forum features; you can install the suggested plugins now or add them later from the admin panel.
 
-The installer creates `config.php` and the database automatically.
+The installer creates `config.json` and the database automatically.
 
 ## Step 5: Log In
 
@@ -40,4 +40,4 @@ Log in with the administrator credentials you just created.
 
 ## Manual Installation
 
-If you prefer to configure `config.php` yourself instead of using the web installer, see [Manual Installation](installation-manual).
+If you prefer to configure `config.json` yourself instead of using the web installer, see [Manual Installation](installation-manual).

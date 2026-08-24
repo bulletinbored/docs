@@ -184,6 +184,25 @@ If a key is missing in the plugin's language file, the key itself is returned
 unchanged. The core translation function `t($key, $params)` continues to resolve
 only from the `core` scope and is unaffected by plugin translations.
 
+## Content Security Policy (CSP)
+
+The core sends a strict CSP header with a per-request nonce. Any inline `<script>`
+tag emitted by a plugin (in hook output, templates, or API responses) **must**
+carry this nonce or the browser will block it:
+
+```html
+<script nonce="<?= htmlspecialchars(csp_nonce(), ENT_QUOTES, 'UTF-8') ?>">
+    // your inline code
+</script>
+```
+
+The nonce is available on every request via `csp_nonce()`. External script files
+loaded from `'self'` or the allowed CDNs (jsdelivr, facebook.net, instagram.com,
+twitter.com, youtube.com) do not need the nonce.
+
+Avoid inline event handlers (`onclick`, `onload`, ...); they are blocked by the
+CSP. Attach listeners from an external script or a nonce'd inline script instead.
+
 ## Plugin Manager API
 
 ```php

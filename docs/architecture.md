@@ -16,16 +16,16 @@ All managers are instantiated in `index.php` (after the bootstrap) and are fully
 
 The application is still a single upload with **no Composer, no Docker, no build step** — but the old single `index.php` has been split into small, focused files under `src/`:
 
-- `index.php` — the thin front controller. It only wires the bootstrap, database, managers and router, then delegates request handling to `src/actions.php`.
-- `src/bootstrap.php` — session start, install check, `config.php` load, i18n setup (`t()`/`pt()`/`tt()`) and a hand-written PSR-4 autoloader for the `Bulletin\` namespace (no Composer needed).
+- `index.php` — the thin front controller. It only wires the bootstrap, database, managers and router, then delegates request handling to the action handlers in `src/actions/`.
+- `src/bootstrap.php` — session start, install check, `config.json` load, i18n setup (`t()`/`pt()`/`tt()`) and a hand-written PSR-4 autoloader for the `Bulletin\` namespace (no Composer needed).
 - `src/helpers.php` — pure helper functions: `slugify()`, `url()`, `escape()`, `base_url()`, CSRF helpers, presentation helpers (`time_ago()`, `render_avatar()`, `fetch_threads()`, ...) and `send_email()`.
 - `src/Router.php` — maps the incoming request path to `$_GET['action']` (pretty URLs).
 - `src/setup.php` — ensures directories exist and initialises the database (SQLite/MySQL schema, defaults).
-- `src/actions.php` — the request dispatch / routing table. Contains the per-action logic (home, thread, login, admin panels, ...).
+- `src/actions.php` — thin router that delegates to the focused handlers in `src/actions/`.
 
 Key traits that remain unchanged:
 
-- SQLite by default, MySQL configurable via `config.php`
+- SQLite by default, MySQL configurable via `config.json`
 - Session-based authentication
 - Routing via `$_GET['action']`, resolved from pretty URLs by `src/Router.php`
 - SEO-friendly URLs via `.htaccess` rewrite rules
@@ -44,7 +44,7 @@ Old query-string URLs (`?action=thread&id=1`) still work internally.
 
 ```
 /bulletinbored/
-├── config.php             # Configuration (database, email, site, theme, localization)
+├── config.json            # Configuration (database, email, site, theme, localization)
 ├── index.php              # Thin front controller (bootstrap + routing only)
 ├── router.php             # Router for PHP built-in server (dev)
 ├── .htaccess              # SEO-friendly URL rewrites
@@ -56,7 +56,13 @@ Old query-string URLs (`?action=thread&id=1`) still work internally.
 │   ├── helpers.php        # slugify, url, escape, base_url, CSRF, fetch_threads, send_email, ...
 │   ├── Router.php         # Bulletin\Router — pretty-URL → $_GET['action']
 │   ├── setup.php          # directory checks + database initialisation
-│   └── actions.php        # request dispatch / routing table
+│   ├── actions.php        # thin router, delegates to handlers below
+│   ├── actions/           # split action handlers
+│   │   ├── admin.php      # admin panel, settings, updates, catalog
+│   │   ├── posts.php      # threads, replies, moderation
+│   │   ├── users.php      # login, register, profile, password reset
+│   │   ├── content.php    # categories, search, download
+│   │   └── misc.php       # notifications, messages
 ├── views/                 # Template files
 │   ├── header.php         # Shared frontend header/footer (loads theme CSS)
 │   ├── home.php           # Thread listing with sidebar categories + pagination
@@ -87,6 +93,7 @@ Old query-string URLs (`?action=thread&id=1`) still work internally.
 ├── uploads/               # File upload storage (auto-created)
 │   └── avatars/           # User avatar uploads
 ├── data/                  # SQLite database storage (auto-created)
+│   └── .htaccess          # blocks direct access to database/config files
 ├── lang/                  # Localization files
 │   ├── en.php             # English translations
 │   └── it.php             # Italian translations
@@ -97,7 +104,7 @@ Old query-string URLs (`?action=thread&id=1`) still work internally.
 
 Themes work like plugins — each theme is a folder in `themes/` with a `style.css` file:
 
-- Configure active theme in `config.php`: `'theme' => 'freshbored'`
+- Configure active theme in `config.json`: `"theme": "freshbored"`
 - Create custom themes by adding folders in `themes/`
 - Theme CSS is automatically loaded by `views/header.php`
 - All frontend pages use the active theme

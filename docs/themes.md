@@ -50,7 +50,7 @@ themes/
 │   │   └── js/
 │   │       └── main.js
 │   └── lang/
-│       └── en.php              # Optional: translations
+│       └── en.json              # Optional: translations
 └── someother/                  # Another example theme
 ```
 
@@ -77,7 +77,7 @@ freshbored-1.0.0.zip
 │   │   └── js/
 │   │       └── main.js
 │   └── lang/
-│       └── en.php
+│       └── en.json
 ```
 
 The installer automatically detects the theme folder and installs it.
@@ -105,7 +105,7 @@ themes/
     │   └── js/
     │       └── main.js
     └── lang/
-        └── en.php
+        └── en.json
 ```
 
 ## File Integrity Verification (New)
@@ -119,7 +119,16 @@ When installing a theme from a ZIP (via admin panel or catalog), the installer c
 
 ## Third-party themes
 
-Themes distributed through the catalog may be developed by community contributors, not by the bulletinbored team. The bulletinbored team does **not** assume any responsibility for the code, security, or behavior of third-party themes. Install and use them at your own risk.
+The catalog mixes themes developed by the bulletinbored team (**first-party**) and
+themes developed by community contributors (**third-party**). The catalog UI labels
+each one so you can tell them apart. Every catalog entry is **reviewed by the
+bulletinbored team before being added to the catalog**.
+
+Even so, the bulletinbored team does **not** assume any responsibility for the code,
+security, or behavior of third-party themes. Installing one remains an act of trust
+in its author. If a theme is later found to be malicious, bulletinbored will remove
+it from the catalog as soon as it is reported by a user. Install and use them at your
+own risk.
 
 If you encounter a malicious or problematic theme, please report it on the official forum: **www.bulletinbored.net/forum**.
 

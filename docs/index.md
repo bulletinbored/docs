@@ -14,7 +14,7 @@ description: bulletinbored — minimal, extensible forum software with zero depe
 - 🎨 **Theme System** — Themes work like plugins: create a folder with a `style.css` and change the forum's look.
 - 🔗 **SEO-Friendly URLs** — Clean URLs like `/thread/1-slug` and `/category/2-name` via rewrite rules.
 - 🛡️ **User Management** — Registration, profiles with avatars, roles, moderation, private messages, and notifications built in.
-- 🌐 **Localization** — Built-in multilingual support with simple translation files (EN, IT included).
+- 🌐 **Localization** — Built-in multilingual support with simple JSON translation files (EN, IT included).
 - 🔄 **Auto Updates** — Update Manager checks for new versions of core, plugins, and themes via GitHub Releases.
 - 🖥️ **Admin Panel** — Full dashboard: categories, users, moderation, settings, plugins, themes, and languages.
 
@@ -41,6 +41,7 @@ See [Installation](installation) for the full guide.
 - [Managers](managers) — PluginManager, ThemeManager, and UpdateManager in detail.
 - [Localization](localization) — Add new languages and manage translation files.
 - [Versioning](versioning) — Semantic versioning and release management.
+- [Security Model](security) — Trust model, known risks, and hardening options.
 
 ## License
 

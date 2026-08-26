@@ -39,7 +39,7 @@ Folder-based plugins use `manifest.json`:
         "manifest.json",
         "assets/css/editbored.css",
         "assets/js/editbored.js",
-        "lang/en.php"
+        "lang/en.json"
     ]
 }
 ```
@@ -130,9 +130,10 @@ plugins/
     │   │   └── myplugin.css
     │   └── js/
     │       └── myplugin.js
-    └── lang/
-        └── en.php
+└── lang/
+    └── en.json
 ```
+
 
 ## Localization
 
@@ -146,18 +147,17 @@ translation files under `lang/` using the language code as filename:
 ```
 plugins/myplugin/
 └── lang/
-    ├── en.php
-    └── it.php
+    ├── en.json
+    └── it.json
 ```
 
-Each file returns an associative array:
+Each file is a JSON object of string keys to string values:
 
-```php
-<?php
-return [
-    'bold' => 'Bold',
-    'italic' => 'Italic',
-];
+```json
+{
+    "bold": "Bold",
+    "italic": "Italic"
+}
 ```
 
 The strings are loaded automatically into the `plugin:<name>` scope (e.g.
@@ -197,8 +197,9 @@ carry this nonce or the browser will block it:
 ```
 
 The nonce is available on every request via `csp_nonce()`. External script files
-loaded from `'self'` or the allowed CDNs (jsdelivr, facebook.net, instagram.com,
-twitter.com, youtube.com) do not need the nonce.
+loaded from `'self'` or the allowed CDN (`cdn.jsdelivr.net`) do not need the nonce.
+Embeds (YouTube, Twitter/X, Instagram, Facebook) are loaded in iframes and are
+restricted by the CSP `frame-src` allow-list, not by `script-src`.
 
 Avoid inline event handlers (`onclick`, `onload`, ...); they are blocked by the
 CSP. Attach listeners from an external script or a nonce'd inline script instead.
@@ -218,7 +219,7 @@ $pluginManager->enable('myplugin');
 $pluginManager->disable('myplugin');
 
 // Localization
-$pluginManager->loadTranslations($lang);   // loads plugin/lang/{$lang}.php into the plugin:<name> scope
+$pluginManager->loadTranslations($lang);   // loads plugin/lang/{$lang}.json into the plugin:<name> scope
 
 // Lifecycle
 $pluginManager->loadEnabled();
@@ -236,6 +237,15 @@ $pluginManager->runHook('after_thread', $threadId);
 
 ## Third-party plugins
 
-Plugins distributed through the catalog may be developed by community contributors, not by the bulletinbored team. The bulletinbored team does **not** assume any responsibility for the code, security, or behavior of third-party plugins. Install and use them at your own risk.
+The catalog mixes plugins developed by the bulletinbored team (**first-party**) and
+plugins developed by community contributors (**third-party**). The catalog UI labels
+each one so you can tell them apart. Every catalog entry is **reviewed by the
+bulletinbored team before being added to the catalog**.
+
+Even so, the bulletinbored team does **not** assume any responsibility for the code,
+security, or behavior of third-party plugins. Installing one remains an act of trust
+in its author. If a plugin is later found to be malicious, bulletinbored will remove
+it from the catalog as soon as it is reported by a user. Install and use them at your
+own risk.
 
 If you encounter a malicious or problematic plugin, please report it on the official forum: **www.bulletinbored.net/forum**.

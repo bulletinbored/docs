@@ -6,28 +6,30 @@ description: bulletinbored documentation
 
 The forum includes a basic translation system managed from the admin dashboard.
 
-1. Create translation files in `lang/` (e.g., `lang/en.php`, `lang/it.php`)
-2. Each file returns an associative array of key => translated string
+1. Create translation files in `lang/` (e.g., `lang/en.json`, `lang/it.json`)
+2. Each file is a JSON object of key => translated string
 3. Go to **Admin Panel → Settings** to configure:
    - **Default Language**: the language used by default
    - **Available Languages**: comma-separated list of enabled language codes
 4. Use `t('key')` in views and index.php to output translated strings
 
-The forum ships with English (`lang/en.php`) and Italian (`lang/it.php`) translations.
+The forum ships with English (`lang/en.json`) and Italian (`lang/it.json`) translations.
 
 ## Translation File Format
 
-Each language file is a PHP file that returns an array:
+Each language file is a JSON object mapping string keys to string values:
 
-```php
-<?php
-return [
-    'site_name' => 'bulletinbored',
-    'home' => 'Home',
-    'login' => 'Login',
-    'logout' => 'Logout',
-];
+```json
+{
+    "site_name": "bulletinbored",
+    "home": "Home",
+    "login": "Login",
+    "logout": "Logout"
+}
 ```
+
+Uploaded language files are validated as a JSON object of string keys/values; a PHP
+file is no longer accepted (translation files are parsed as data, never executed).
 
 ## Using Translations
 

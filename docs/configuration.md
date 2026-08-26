@@ -108,6 +108,27 @@ in `src/actions/` handlers are:
 The `data/ratelimit/` directory is created automatically. No configuration is
 required; the limits are hard-coded in the action handlers.
 
+## Security Hardening
+
+bulletinbored trusts its administrator to install code (plugins, themes, language
+packs, updates). The following options harden that trust boundary; see the
+[Security Model](security) for the full threat model.
+
+```json
+"plugin_verify_files": true,
+"theme_verify_files": true,
+"allow_catalog_only": false
+```
+
+| Key | Default | Effect |
+|---|---|---|
+| `plugin_verify_files` | `true` | When installing a plugin from a ZIP, reject the package if its extracted files do not match the `files` list declared in `manifest.json` (catches dropped-in/backdoor files). Plugins without a `files` key are skipped. |
+| `theme_verify_files` | `true` | Same integrity check for themes. |
+| `allow_catalog_only` | `false` | When `true`, only catalog entries marked `official: true` may be installed. This narrows the trusted source surface but does **not** pre-approve updates — a curated source can still publish a new version at any time (see [Security Model](security)). |
+
+Disabling a `*_verify_files` check weakens tamper detection and is not recommended
+on a production forum with untrusted users.
+
 ## Updates
 
 Configure an update server if you want automatic update checking:

@@ -78,6 +78,10 @@
     "seo": {
       "defaultDescription": "bulletinbored — minimal, extensible forum software with zero dependencies."
     },
+    "sitemap": {
+      "defaultChangefreq": "weekly",
+      "defaultPriority": 0.8
+    },
     "git": {
       "commitHistory": true,
       "maxCommits": 5

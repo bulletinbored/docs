@@ -59,6 +59,7 @@ Plugins register callbacks via `$pluginManager->addHook('event', $callback)`.
 | `frontend_before_render` | — | Before a frontend page is rendered |
 | `admin_before_render` | — | Before an admin page is rendered |
 | `footer_before_render` | — | Before the footer is rendered |
+| `render_content` | `$text` (string, raw post content) | When post content is rendered. A plugin can return replacement HTML to take over rendering (e.g. to add auto-embeds or link cards). Return `null` to fall back to the core Markdown renderer. |
 
 ### Example
 
@@ -67,6 +68,19 @@ function myplugin_init() {
     global $pluginManager;
     $pluginManager->addHook('after_post', function($threadId, $postId) {
         // react to new posts
+    });
+}
+```
+
+### Render content example
+
+```php
+function myplugin_init() {
+    global $pluginManager;
+    // Take over content rendering. Return HTML to override the core Markdown
+    // renderer, or null to fall back to it.
+    $pluginManager->addHook('render_content', function(string $text): ?string {
+        return '<div class="markdown-content">' . my_custom_parse($text) . '</div>';
     });
 }
 ```
@@ -220,6 +234,7 @@ $pluginManager->getVersion('myplugin');
 $pluginManager->addHook('after_thread', $callback);
 $pluginManager->removeHook('after_thread', $callback);
 $pluginManager->runHook('after_thread', $threadId);
+$pluginManager->applyHook('after_thread', $threadId); // like runHook(), but returns the first non-null value returned by a callback (for filters that may override a core value)
 ```
 
 ## Third-party plugins

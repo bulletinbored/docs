@@ -28,8 +28,7 @@ Each language file is a JSON object mapping string keys to string values:
 }
 ```
 
-Uploaded language files are validated as a JSON object of string keys/values; a PHP
-file is no longer accepted (translation files are parsed as data, never executed).
+Uploaded language files are validated as a JSON object of string keys/values; a PHP file is no longer accepted (translation files are parsed as data, never executed).
 
 ## Using Translations
 

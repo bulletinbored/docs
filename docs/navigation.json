@@ -1,0 +1,14 @@
+[
+  { "title": "Welcome", "path": "/" },
+  { "title": "Architecture", "path": "/architecture/" },
+  { "title": "Configuration", "path": "/configuration/" },
+  { "title": "Installation", "path": "/installation/" },
+  { "title": "Manual Installation", "path": "/installation-manual/" },
+  { "title": "License", "path": "/license/" },
+  { "title": "Localization", "path": "/localization/" },
+  { "title": "Managers", "path": "/managers/" },
+  { "title": "Plugin Development", "path": "/plugins/" },
+  { "title": "Theme Development", "path": "/themes/" },
+  { "title": "Security Model", "path": "/security/" },
+  { "title": "Versioning", "path": "/versioning/" }
+]

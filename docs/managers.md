@@ -91,14 +91,8 @@ Plugins and themes are checked against the repositories listed in `data/catalog.
 
 Each catalog entry can carry two flags:
 
-- `official` (`true`/`false`) — whether the component is curated in the official
-  catalog. In **catalog-only mode** (`$config['allow_catalog_only'] = true`) only
-  `official: true` entries may be installed.
-- `author_type` (`"first_party"` / `"third_party"`) — distinguishes plugins/themes
-  developed by the bulletinbored team from community-developed ones that are still
-  curated into the official catalog. It is purely descriptive: the catalog UI shows
-  **"Developed by bulletinbored team"** / **"Developed by third party"** instead of
-  a generic "official" label, and it does not affect the `official` install gate.
+- `official` (`true`/`false`) — whether the component is curated in the official catalog. In **catalog-only mode** (`$config['allow_catalog_only'] = true`) only `official: true` entries may be installed. 
+- `author_type` (`"first_party"` / `"third_party"`) — distinguishes plugins/themes developed by the bulletinbored team from community-developed ones that are still curated into the official catalog. It is purely descriptive: the catalog UI shows **"Developed by bulletinbored team"** / **"Developed by third party"** instead of a generic "official" label, and it does not affect the `official` install gate.
 
 ### GitHub token
 

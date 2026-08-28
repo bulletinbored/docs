@@ -137,12 +137,9 @@ plugins/
 
 ## Localization
 
-Plugins can be localized independently from the core. Each plugin gets its own
-translation **scope**, so plugin strings never collide with the core or with
-other plugins (e.g. two plugins may both use a `title` key without conflict).
+Plugins can be localized independently from the core. Each plugin gets its own translation **scope**, so plugin strings never collide with the core or with other plugins (e.g. two plugins may both use a `title` key without conflict).
 
-Folder-based plugins only (file-based plugins cannot carry lang files): place
-translation files under `lang/` using the language code as filename:
+Folder-based plugins only (file-based plugins cannot carry lang files): place translation files under `lang/` using the language code as filename:
 
 ```
 plugins/myplugin/
@@ -160,9 +157,7 @@ Each file is a JSON object of string keys to string values:
 }
 ```
 
-The strings are loaded automatically into the `plugin:<name>` scope (e.g.
-`plugin:myplugin`) based on the active language, and are available before the
-plugin's `init` hook runs.
+The strings are loaded automatically into the `plugin:<name>` scope (e.g. `plugin:myplugin`) based on the active language, and are available before the plugin's `init` hook runs.
 
 ### Usage
 
@@ -179,16 +174,11 @@ You may also call the core translation function directly with an explicit scope:
 echo t('bold', [], 'plugin:myplugin');
 ```
 
-If a key is missing in the plugin's language file, the key itself is returned
-(untranslated) — so a plugin that ships no `lang/` directory still works
-unchanged. The core translation function `t($key, $params)` continues to resolve
-only from the `core` scope and is unaffected by plugin translations.
+If a key is missing in the plugin's language file, the key itself is returned (untranslated) — so a plugin that ships no `lang/` directory still works unchanged. The core translation function `t($key, $params)` continues to resolve only from the `core` scope and is unaffected by plugin translations.
 
 ## Content Security Policy (CSP)
 
-The core sends a strict CSP header with a per-request nonce. Any inline `<script>`
-tag emitted by a plugin (in hook output, templates, or API responses) **must**
-carry this nonce or the browser will block it:
+The core sends a strict CSP header with a per-request nonce. Any inline `<script>` tag emitted by a plugin (in hook output, templates, or API responses) **must** carry this nonce or the browser will block it:
 
 ```html
 <script nonce="<?= htmlspecialchars(csp_nonce(), ENT_QUOTES, 'UTF-8') ?>">
@@ -196,13 +186,10 @@ carry this nonce or the browser will block it:
 </script>
 ```
 
-The nonce is available on every request via `csp_nonce()`. External script files
-loaded from `'self'` or the allowed CDN (`cdn.jsdelivr.net`) do not need the nonce.
-Embeds (YouTube, Twitter/X, Instagram, Facebook) are loaded in iframes and are
+The nonce is available on every request via `csp_nonce()`. External script files loaded from `'self'` or the allowed CDN (`cdn.jsdelivr.net`) do not need the nonce. Embeds (YouTube, Twitter/X, Instagram, Facebook) are loaded in iframes and are
 restricted by the CSP `frame-src` allow-list, not by `script-src`.
 
-Avoid inline event handlers (`onclick`, `onload`, ...); they are blocked by the
-CSP. Attach listeners from an external script or a nonce'd inline script instead.
+Avoid inline event handlers (`onclick`, `onload`, ...); they are blocked by the CSP. Attach listeners from an external script or a nonce'd inline script instead.
 
 ## Plugin Manager API
 
@@ -237,15 +224,8 @@ $pluginManager->runHook('after_thread', $threadId);
 
 ## Third-party plugins
 
-The catalog mixes plugins developed by the bulletinbored team (**first-party**) and
-plugins developed by community contributors (**third-party**). The catalog UI labels
-each one so you can tell them apart. Every catalog entry is **reviewed by the
-bulletinbored team before being added to the catalog**.
+The catalog mixes plugins developed by the bulletinbored team (**first-party**) and plugins developed by community contributors (**third-party**). The catalog UI labels each one so you can tell them apart. Every catalog entry is **reviewed by the bulletinbored team before being added to the catalog**.
 
-Even so, the bulletinbored team does **not** assume any responsibility for the code,
-security, or behavior of third-party plugins. Installing one remains an act of trust
-in its author. If a plugin is later found to be malicious, bulletinbored will remove
-it from the catalog as soon as it is reported by a user. Install and use them at your
-own risk.
+Even so, the bulletinbored team does **not** assume any responsibility for the code, security, or behavior of third-party plugins. Installing one remains an act of trust in its author. If a plugin is later found to be malicious, bulletinbored will remove it from the catalog as soon as it is reported by a user. Install and use them at your own risk.
 
 If you encounter a malicious or problematic plugin, please report it on the official forum: **www.bulletinbored.net/forum**.

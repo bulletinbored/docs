@@ -119,17 +119,16 @@ When installing a theme from a ZIP (via admin panel or catalog), the installer c
 
 ## Third-party themes
 
-The catalog mixes themes developed by the bulletinbored team (**first-party**) and
-themes developed by community contributors (**third-party**). The catalog UI labels
-each one so you can tell them apart. Every catalog entry is **reviewed by the
-bulletinbored team before being added to the catalog**.
+The catalog mixes themes developed by the bulletinbored team (**first-party**) and themes developed by community contributors (**third-party**). The catalog UI labels each one so you can tell them apart. Every catalog entry is **reviewed by the bulletinbored team before being added to the catalog**.
 
-Even so, the bulletinbored team does **not** assume any responsibility for the code,
-security, or behavior of third-party themes. Installing one remains an act of trust
-in its author. If a theme is later found to be malicious, bulletinbored will remove
-it from the catalog as soon as it is reported by a user. Install and use them at your
-own risk.
+Even so, the bulletinbored team does **not** assume any responsibility for the code, security, or behavior of third-party themes. Installing one remains an act of trust in its author. If a theme is later found to be malicious, bulletinbored will remove it from the catalog as soon as it is reported by a user. Install and use them at your own risk.
 
 If you encounter a malicious or problematic theme, please report it on the official forum: **www.bulletinbored.net/forum**.
 
-## Hook System
+## Relationship with the Hook System
+
+Themes are presentation only: they ship `style.css`, a `layout/` template, and optional `assets/` and `lang/`. A theme is **not** loaded as executable PHP, so it cannot register hooks or run backend logic on its own.
+
+The hook/event system is part of the **Plugin** API, not the theme API. Plugins register callbacks via `PluginManager::addHook($event, $callback)` and react to core events such as `before_render`, `frontend_before_render`, `admin_before_render`, `footer_before_render`, and `user_registered`. If you need to trigger behavior when one of these events fires, build a plugin rather than a theme.
+
+This means a theme can only influence what is rendered by editing its templates and styles — any dynamic reaction to forum events must be implemented in a plugin that hooks into the active theme's output.

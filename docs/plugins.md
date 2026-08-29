@@ -342,7 +342,7 @@ $pluginManager->filter('event', $value, ...$args);     // chain value through ca
 $pluginManager->checkHook('event', ...$args);          // true if any callback returns true
 $pluginManager->checkHookAll('event', ...$args);       // true if all callbacks return true
 
-// CLI (new in 2.1.0)
+// CLI (new in 0.5.1)
 $pluginManager->addHook('cli', function($registry) {
     $registry->register('command:name', 'Description', fn($args) => ...);
 });

@@ -20,11 +20,12 @@ php bb.php <command> [options]
 |---|---|
 | `migrate` | Run all pending migrations |
 | `migrate:rollback` | Rollback the last batch of migrations |
-| `migrate:status` | Show migration status (pending/ran) |
+| `migrate:status` | Show migration status (pending/ran) with source |
 | `plugin:list` | List all plugins with version and status |
 | `plugin:enable <name>` | Enable a plugin |
 | `plugin:disable <name>` | Disable a plugin |
 | `cache:flush` | Clear cache and session files |
+| `doctor` | Run system diagnostics |
 | `help` | Show help |
 
 ### Examples
@@ -47,6 +48,9 @@ php bb.php plugin:enable hellobored
 
 # Flush caches
 php bb.php cache:flush
+
+# Run diagnostics
+php bb.php doctor
 ```
 
 > **Note**: the CLI requires a `config.json` file to be present in the forum root. If it is missing, the CLI exits with an error.
@@ -54,13 +58,14 @@ php bb.php cache:flush
 Example output of `php bb.php migrate:status`:
 
 ```
-+--------------------------------+-------+---------------------+
-| Migration                      | Batch | Ran At              |
-+--------------------------------+-------+---------------------+
-| 20260829_initial_schema        | 1     | 2026-08-29 14:40:01 |
-| 20260830_add_user_bio          | 2     | 2026-08-30 09:12:44 |
-| 20260901_create_tags_table     | —     | pending             |
-+--------------------------------+-------+---------------------+
++--------------------------------+--------+-------+---------------------+
+| Migration                      | Source | Batch | Ran At              |
++--------------------------------+--------+-------+---------------------+
+| 20260829_initial_schema        | core   | 1     | 2026-08-29 14:40:01 |
+| 20260830_add_user_bio          | core   | 2     | 2026-08-30 09:12:44 |
+| 20260901_create_tags_table     | myplugin | 2   | 2026-09-01 10:00:00 |
+| 20260902_add_custom_table      | myplugin | —   | pending             |
++--------------------------------+--------+-------+---------------------+
 ```
 
 ## Migration System (`lib/Migrator.php`)
@@ -141,14 +146,75 @@ Batch 3: 20260901_create_tags_table
 
 Running `migrate:rollback` would reverse batch 3 only.
 
-### The `migrations` Table
+### The `doctor` Command
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | INTEGER | Primary key |
-| `migration` | TEXT | Migration filename (without .php) |
-| `batch` | INTEGER | Batch number |
-| `ran_at` | DATETIME | When it was run |
+The `doctor` command runs a full system diagnostic, checking:
+
+- **PHP version** — requires 8.1+
+- **Extensions** — required (pdo, json, mbstring, fileinfo) and optional (zip, curl, gd)
+- **Directory permissions** — verifies data, plugins, themes, migrations are writable
+- **Database** — connection status and table count
+- **Security** — display_errors, expose_php settings
+
+```
+=== bulletinbored diagnostics ===
+
+  ✓ PHP version: 8.2.12
+  ✓ Extension: pdo
+  ✓ Extension: pdo_sqlite
+  ✓ Extension: json
+  ✓ Extension: mbstring
+  ✓ Extension: fileinfo
+  ✓ Extension: zip (optional)
+
+Directory permissions:
+  ✓ data: writable
+  ✓ data/cache: writable
+  ✓ plugins: writable
+  ✓ themes: writable
+  ✓ migrations: writable
+
+Database:
+  ✓ Driver: sqlite (database exists)
+  ✓ Tables: 15
+
+Security:
+  ✓ display_errors is OFF
+  ✓ expose_php is OFF
+
+✓ All checks passed!
+```
+
+## Custom CLI Commands (Plugin API)
+
+Plugins can register custom CLI commands via the `cli` hook:
+
+```php
+function myplugin_init() {
+    global $pluginManager;
+    
+    $pluginManager->addHook('cli', function($registry) {
+        $registry->register(
+            'myplugin:clear',
+            'Clear my plugin cache',
+            function($args) {
+                // Command logic
+                echo "Cache cleared!\n";
+            }
+        );
+    });
+}
+```
+
+Usage: `php bb.php myplugin:clear`
+
+The `$registry` object provides:
+
+| Method | Description |
+|---|---|
+| `register($name, $description, $handler)` | Register a new command |
+| `has($name)` | Check if a command exists |
+| `$args` | Array of arguments passed after the command name |
 
 ### Best Practices
 
@@ -161,32 +227,40 @@ Running `migrate:rollback` would reverse batch 3 only.
 
 ### Plugin Migrations
 
-> **Status in 0.5.0**: plugin migrations are **not yet supported automatically**. The `Migrator` scans only the core `migrations/` directory. The example below is a **proposal** for a future release — the `migrate` hook is not implemented in the core yet.
+Plugins can provide their own migrations by creating a `migrations/` folder in their directory:
 
-Plugins that need schema changes in 0.5.0 must either:
+```
+plugins/
+  myplugin/
+    migrations/
+      20260829_add_my_table.php
+    manifest.json
+    myplugin.php
+```
 
-- Ship their schema changes as part of their own setup code (e.g. run `CREATE TABLE IF NOT EXISTS` on first load), or
-- Coordinate with the forum administrator to add a core migration.
-
-The following pattern is planned for a future release, where plugins can include their own migrations in `plugins/{name}/migrations/`:
+The `Migrator` automatically scans `plugins/*/migrations/` when running `bb migrate`. Plugin migrations are tracked alongside core migrations, with a `source` column indicating the origin (`core` or plugin folder name).
 
 ```php
-// In your plugin's init() — NOT YET SUPPORTED in 0.5.0:
-$pm->addHook('migrate', function() use ($pdo) {
-    $pluginMigrator = new Migrator($pdo, $config, __DIR__ . '/migrations');
-    $pluginMigrator->migrate();
-});
+// In bb.php — plugin paths are auto-discovered
+$migrator->addPluginPaths(BB_ROOT . '/plugins');
+```
+
+You can also register custom migration paths manually:
+
+```php
+$migrator->addPath('/path/to/custom/migrations');
 ```
 
 ## File Structure
 
 ```
 bulletinbored/
-├── bb.php                    # CLI entry point
+├── bb.php                    # CLI entry point (extensible command registry)
 ├── migrations/               # Core migrations
 │   └── 20260829_initial_schema.php
 ├── lib/
-│   └── Migrator.php          # Migration engine
+│   └── Migrator.php          # Migration engine (supports plugin paths)
 └── tests/
-    └── MigratorTest.php      # Migration tests
+    ├── MigratorTest.php      # Migration tests
+    └── E2eFlowTest.php       # End-to-end flow tests
 ```

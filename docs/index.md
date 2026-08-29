@@ -36,10 +36,13 @@ See [Installation](installation) for the full guide.
 
 - [Architecture](architecture) — Understand the MVC structure, manager system, and directory layout.
 - [Configuration](configuration) — Database, email, themes, localization, and update server settings.
-- [Plugin Development](plugins) — Create plugins with hooks and extend the forum's functionality.
+- [Rendering](rendering) — Micro template engine: escaping, components, slots, view composers.
+- [CLI & Migrations](cli-migrations) — Zero-dependency CLI (`bb.php`), migration system, `doctor` diagnostics.
+- [Plugin Development](plugins) — Create plugins with hooks, custom routes, CLI commands.
 - [Theme Development](themes) — Build custom themes with a single `style.css` file.
 - [Managers](managers) — PluginManager, ThemeManager, and UpdateManager in detail.
 - [Localization](localization) — Add new languages and manage translation files.
+- [Testing](testing) — Zero-dependency test suite, E2E flow tests.
 - [Versioning](versioning) — Semantic versioning and release management.
 - [Security Model](security) — Trust model, known risks, and hardening options.
 

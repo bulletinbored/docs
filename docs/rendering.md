@@ -70,6 +70,24 @@ Define layout sections:
 <?php $this->yield('sidebar', 'Default content') ?>
 ```
 
+### View Composers
+
+View composers automatically inject data before rendering a template:
+
+```php
+// Composer for a specific template
+$renderer->composer('home', function() {
+    return ['stats' => forum_statistics()];
+});
+
+// Composer for all templates
+$renderer->composeAll(function() {
+    return ['currentUser' => $_SESSION['username'] ?? null];
+});
+```
+
+Composers run after global data but before template rendering, and their return values are merged into the template data.
+
 ### Control Flow
 
 ```php
@@ -156,3 +174,4 @@ views/
 2. **Always escape** — use `$this->e()` for any user-generated content
 3. **Use components** — extract reusable UI into `views/components/`
 4. **Keep templates declarative** — if/else for visibility, foreach for loops, no business logic
+5. **Use composers** — inject shared data (stats, user info) via `composer()` instead of repeating it in every handler

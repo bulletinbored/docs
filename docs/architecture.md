@@ -75,9 +75,9 @@ Clean URLs are supported via `.htaccess` rewrite rules. All requests are routed 
 
 ## Routing with Middleware (`src/Router.php`)
 
-The `Bulletin\Router` class handles **all** request dispatch in 0.5.0 through a middleware pipeline. Routes are registered in `index.php` with `get()`, `post()`, etc., and organized into groups with middleware.
+The `Bulletin\Router` class handles **all** request dispatch through a middleware pipeline. Routes are registered in `index.php` with `get()`, `post()`, etc., and organized into groups with middleware.
 
-> **Legacy `Router::resolve()`**: the old static method is **preserved for backward compatibility** only. It is no longer used by the core for request dispatch (the legacy `src/actions.php` dispatcher was removed in 0.5.0). Plugin developers should use the new `Bulletin\Router` API — see [Plugin Development](plugins#custom-routes-and-middleware).
+The router supports automatic content negotiation — requests with `Accept: application/json` or paths under `/api/*` receive JSON responses automatically.
 
 ### Middleware Mode Example
 
@@ -104,7 +104,21 @@ $router->registerMiddleware('rate_limit', function($params) {
 $router->dispatch();
 ```
 
-### Built-in Middleware
+### API Routes
+
+The router automatically detects JSON requests and sets the appropriate `Content-Type` header:
+
+```php
+// Automatic JSON response for API routes
+$router->api()->get('/api/threads', function($params) {
+    return ['threads' => fetch_threads()];  // Auto-encoded to JSON
+});
+
+// Or detect via Accept header
+$router->get('/data', function($params) {
+    return ['key' => 'value'];  // JSON if Accept: application/json
+});
+```
 
 | Middleware | Purpose |
 |---|---|
@@ -158,11 +172,11 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 │   │   ├── users.php      # login, register, profile, password reset
 │   │   ├── content.php    # categories, search, download
 │   │   └── misc.php       # notifications, messages
-├── tests/                 # Zero-dependency test suite (0.5.0)
+├── tests/                 # Zero-dependency test suite
 │   ├── harness.php        # Test + TestSuite classes (the engine)
 │   ├── run.php            # CLI runner
 │   ├── DbQueryTest.php    # Query builder tests
-│   ├── RouterTest.php     # Router tests
+│   ├── E2eFlowTest.php    # End-to-end flow tests (thread lifecycle, JSON API, plugins)
 │   ├── PluginManagerTest.php # Hook system tests
 │   ├── AuthTest.php       # Auth, permissions, CSRF tests
 │   ├── MigratorTest.php   # Migration engine tests

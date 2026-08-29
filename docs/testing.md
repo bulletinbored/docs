@@ -14,7 +14,7 @@ php tests/run.php
 
 # Run a specific test file
 php tests/run.php DbQuery
-php tests/run.php Router
+php tests/run.php E2eFlow
 php tests/run.php PluginManager
 php tests/run.php Auth
 php tests/run.php Migrator
@@ -32,7 +32,7 @@ tests/
 ├── harness.php           # Test + TestSuite classes (the engine)
 ├── run.php               # CLI runner
 ├── DbQueryTest.php       # DbQuery (query builder) tests
-├── RouterTest.php        # Router (URL resolution + middleware) tests
+├── E2eFlowTest.php       # End-to-end flow tests (thread lifecycle, JSON API, plugins)
 ├── PluginManagerTest.php # Hook system tests
 ├── AuthTest.php          # Auth, permissions, CSRF, input validation tests
 ├── MigratorTest.php      # Migration engine tests
@@ -162,34 +162,67 @@ function test_dbquery_insert(): Test
 }
 ```
 
-### Router Tests
+### Router / E2E Flow Tests
 
-Test URL resolution by setting `$_SERVER['REQUEST_URI']` and dispatching through the `Bulletin\Router`:
+Test complete workflows by setting `$_SERVER` state and dispatching through the `Bulletin\Router`:
 
 ```php
-function test_router_thread_url(): Test
+function test_e2e_thread_lifecycle(): Test
 {
-    $t = new Test('Router - Thread URL');
-
-    // Save original state
-    $origGet = $_GET;
-    $origServer = $_SERVER;
+    $t = new Test('E2E: Thread lifecycle');
 
     // Simulate request
+    $_SERVER = [
+        'REQUEST_URI' => '/thread/123',
+        'REQUEST_METHOD' => 'GET',
+        'HTTP_HOST' => 'localhost',
+        'SCRIPT_NAME' => '/index.php',
+    ];
     $_GET = [];
-    $_SERVER['REQUEST_URI'] = '/thread/123-my-thread';
 
     $router = new Bulletin\Router();
     $router->get('/thread/{id:\d+}', function($params) {
         return ['status' => 200, 'body' => 'thread:' . $params['id']];
     });
-    $result = $router->dispatch();
 
-    $t->assertEquals('Route matches thread pattern', 'thread:123', $result['body'] ?? '');
+    ob_start();
+    $router->dispatch();
+    $output = ob_get_clean();
 
-    // Restore state
-    $_GET = $origGet;
-    $_SERVER = $origServer;
+    $t->assertEquals('Route matches thread pattern', 'thread:123', $output);
+
+    return $t;
+}
+```
+
+### JSON API Tests
+
+Test automatic JSON encoding for API routes:
+
+```php
+function test_json_api_flow(): Test
+{
+    $t = new Test('E2E: JSON API');
+
+    $_SERVER = [
+        'REQUEST_URI' => '/api/threads',
+        'REQUEST_METHOD' => 'GET',
+        'HTTP_ACCEPT' => 'application/json',
+        'HTTP_HOST' => 'localhost',
+        'SCRIPT_NAME' => '/index.php',
+    ];
+
+    $router = new Bulletin\Router();
+    $router->api()->get('/api/threads', function($params) {
+        return ['threads' => [], 'total' => 0];
+    });
+
+    ob_start();
+    $router->dispatch();
+    $output = ob_get_clean();
+
+    $decoded = json_decode($output, true);
+    $t->assert('Returns valid JSON', $decoded !== null);
 
     return $t;
 }
@@ -259,13 +292,13 @@ function test_permissions(): Test
 | File | Component | Tests | What's Tested |
 |---|---|---|---|
 | `DbQueryTest.php` | Query builder | 40 | Insert, select, where, update, delete, order, limit, offset, count, exists, paginate, insertIgnore, pluck, raw queries |
-| `RouterTest.php` | URL routing | 19 | Pretty URL resolution, middleware registration, parameter patterns |
+| `E2eFlowTest.php` | End-to-end flows | 21 | Thread lifecycle, JSON API responses, plugin routes, plugin migrations, current_route_action() helper |
 | `PluginManagerTest.php` | Hook system | 17 | Actions, filters, checks, priority, removal |
 | `AuthTest.php` | Authentication | 35 | Password hashing, CSRF, permissions, session state, ban/suspension, input validation |
 | `MigratorTest.php` | Migration engine | 27 | Table creation, up/down, batch tracking, pending detection, class loading |
 | `SecurityTest.php` | Security | 25 | CSRF rotation, Request sanitization, audit log |
 | `PluginRouterTest.php` | Plugin routing | 4 | Plugin route/middleware registration, `$_GET` population |
-| **Total** | | **217** | |
+| **Total** | | **175** | |
 
 ## Exit Codes
 

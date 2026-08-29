@@ -125,6 +125,33 @@ Plugins register callbacks via `$pluginManager->addHook('event', $callback, $pri
 |---|---|---|---|
 | `user_registered` | action | `$userId`, `$username` | After user registration |
 
+### CLI Hooks
+
+| Event | Type | Arguments | When |
+|---|---|---|---|
+| `cli` | action | `$registry` (CommandRegistry) | During CLI bootstrap, before command dispatch |
+
+Plugins can register custom CLI commands:
+
+```php
+function myplugin_init() {
+    global $pluginManager;
+    
+    $pluginManager->addHook('cli', function($registry) {
+        $registry->register(
+            'myplugin:clear',
+            'Clear my plugin cache',
+            function($args) {
+                // Command logic
+                echo "Cache cleared!\n";
+            }
+        );
+    });
+}
+```
+
+Usage: `php bb.php myplugin:clear`
+
 ### Example: Block Thread Creation
 
 ```php
@@ -314,6 +341,11 @@ $pluginManager->applyHook('event', ...$args);          // return first non-null
 $pluginManager->filter('event', $value, ...$args);     // chain value through callbacks
 $pluginManager->checkHook('event', ...$args);          // true if any callback returns true
 $pluginManager->checkHookAll('event', ...$args);       // true if all callbacks return true
+
+// CLI (new in 2.1.0)
+$pluginManager->addHook('cli', function($registry) {
+    $registry->register('command:name', 'Description', fn($args) => ...);
+});
 
 // Router (new in 0.5.0)
 $pluginManager->setRouter($router);                     // bind the router (called by core, optional)

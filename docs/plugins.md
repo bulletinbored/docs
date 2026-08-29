@@ -315,7 +315,7 @@ $pluginManager->filter('event', $value, ...$args);     // chain value through ca
 $pluginManager->checkHook('event', ...$args);          // true if any callback returns true
 $pluginManager->checkHookAll('event', ...$args);       // true if all callbacks return true
 
-// Router (new in 0.6.0)
+// Router (new in 0.5.0)
 $pluginManager->setRouter($router);                     // bind the router (called by core, optional)
 $pluginManager->getRouter();                           // get the router instance
 $pluginManager->registerRoute('GET', '/my-plugin/endpoint', $handler);  // register a custom route
@@ -325,7 +325,7 @@ $pluginManager->applyRoutes();                         // apply registrations (c
 
 ## Custom Routes and Middleware
 
-Plugins can register custom routes and middleware during their `init()` hook. These are applied before dispatch:
+Plugins can register custom routes and middleware during their `{name}_init()` function. These are applied before dispatch:
 
 ```php
 function myplugin_init() {

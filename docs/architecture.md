@@ -9,8 +9,9 @@ description: Understand the MVC structure, manager system, and directory layout.
 - **PluginManager** — handles plugin discovery, enable/disable, hook registration/execution (actions, filters, checks)
 - **ThemeManager** — handles theme discovery, activation, and CSS URL/path resolution
 - **UpdateManager** — handles version tracking and update checks for core, plugins, and themes
+- **Migrator** — file-based database migrations (`migrations/YYYYMMDD_description.php`), batch tracking, and rollbacks
 
-All managers are instantiated in `index.php` (after the bootstrap) and are fully integrated into the routing layer and admin panel.
+All managers are instantiated in `index.php` (after the bootstrap) and are fully integrated into the routing layer and admin panel. The `Migrator` is also used by the CLI (`bb.php`).
 
 ## Data Layer (`lib/DbQuery.php`)
 
@@ -74,7 +75,9 @@ Clean URLs are supported via `.htaccess` rewrite rules. All requests are routed 
 
 ## Routing with Middleware (`src/Router.php`)
 
-The `Bulletin\Router` class handles all request dispatch through a middleware pipeline. Routes are registered in `index.php` with `get()`, `post()`, etc., and organized into groups with middleware.
+The `Bulletin\Router` class handles **all** request dispatch in 0.5.0 through a middleware pipeline. Routes are registered in `index.php` with `get()`, `post()`, etc., and organized into groups with middleware.
+
+> **Legacy `Router::resolve()`**: the old static method is **preserved for backward compatibility** only. It is no longer used by the core for request dispatch (the legacy `src/actions.php` dispatcher was removed in 0.5.0). Plugin developers should use the new `Bulletin\Router` API — see [Plugin Development](plugins#custom-routes-and-middleware).
 
 ### Middleware Mode Example
 
@@ -126,11 +129,18 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 /bulletinbored/
 ├── config.json            # Configuration (database, email, site, theme, localization)
 ├── index.php              # Thin front controller (bootstrap + routing only)
+├── bb.php                 # CLI entry point (migrate, plugin:list, cache:flush, ...)
 ├── router.php             # Router for PHP built-in server (dev)
-├── .htaccess              # SEO-friendly URL rewrites
+├── .htaccess              # SEO-friendly URL rewrites (Apache/LiteSpeed)
+├── nginx.conf             # Nginx server block with rewrite rules (0.5.0)
+├── web.config             # IIS URL Rewrite rules (0.5.0)
+├── VERSION                # Single-source-of-truth version file
+├── migrations/            # File-based database migrations
+│   └── YYYYMMDD_description.php
 ├── lib/                   # Backend managers and data layer
 │   ├── BbPdo.php          # PDO wrapper with SQLite/MySQL SQL normalization
 │   ├── DbQuery.php        # Lightweight query builder (table/where/first/insert/update/delete)
+│   ├── Migrator.php       # File-based migration engine (up/down, batches, rollback)
 │   ├── PluginManager.php  # Plugin discovery, hooks, install/delete
 │   ├── ThemeManager.php   # Theme discovery, activation
 │   ├── UpdateManager.php  # Version tracking and updates
@@ -148,6 +158,16 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 │   │   ├── users.php      # login, register, profile, password reset
 │   │   ├── content.php    # categories, search, download
 │   │   └── misc.php       # notifications, messages
+├── tests/                 # Zero-dependency test suite (0.5.0)
+│   ├── harness.php        # Test + TestSuite classes (the engine)
+│   ├── run.php            # CLI runner
+│   ├── DbQueryTest.php    # Query builder tests
+│   ├── RouterTest.php     # Router tests
+│   ├── PluginManagerTest.php # Hook system tests
+│   ├── AuthTest.php       # Auth, permissions, CSRF tests
+│   ├── MigratorTest.php   # Migration engine tests
+│   ├── SecurityTest.php   # CSRF rotation, Request, audit log tests
+│   └── PluginRouterTest.php # Plugin route/middleware registration tests
 ├── views/                 # Template files
 │   ├── header.php         # Shared frontend header/footer (loads theme CSS)
 │   ├── thread-clean.php   # Clean thread view using components
@@ -163,7 +183,9 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 ├── uploads/               # File upload storage (auto-created)
 │   └── avatars/           # User avatar uploads
 ├── data/                  # SQLite database storage (auto-created)
-│   └── .htaccess          # blocks direct access to database/config files
+│   ├── .htaccess          # blocks direct access to database/config files
+│   ├── logs/              # Admin audit log (security.log)
+│   └── ratelimit/         # Rate limiter buckets (auto-created)
 ├── lang/                  # Localization files
 │   ├── en.json            # English translations
 │   └── it.json            # Italian translations

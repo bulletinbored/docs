@@ -49,6 +49,20 @@ php bb.php plugin:enable hellobored
 php bb.php cache:flush
 ```
 
+> **Note**: the CLI requires a `config.json` file to be present in the forum root. If it is missing, the CLI exits with an error.
+
+Example output of `php bb.php migrate:status`:
+
+```
++--------------------------------+-------+---------------------+
+| Migration                      | Batch | Ran At              |
++--------------------------------+-------+---------------------+
+| 20260829_initial_schema        | 1     | 2026-08-29 14:40:01 |
+| 20260830_add_user_bio          | 2     | 2026-08-30 09:12:44 |
+| 20260901_create_tags_table     | —     | pending             |
++--------------------------------+-------+---------------------+
+```
+
 ## Migration System (`lib/Migrator.php`)
 
 ### How It Works
@@ -88,9 +102,16 @@ class AddUserBio
         if ($driver === 'mysql') {
             $pdo->exec("ALTER TABLE users DROP COLUMN bio");
         } else {
-            // SQLite doesn't support DROP COLUMN in older versions
-            // Would need to recreate the table
-            $pdo->exec("ALTER TABLE users DROP COLUMN bio");
+            // SQLite supports DROP COLUMN only from version 3.35.0 (2021-03-12).
+            // For maximum compatibility, recreate the table instead:
+            $pdo->exec("CREATE TABLE users_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                email TEXT
+            )");
+            $pdo->exec("INSERT INTO users_new (id, username, email) SELECT id, username, email FROM users");
+            $pdo->exec("DROP TABLE users");
+            $pdo->exec("ALTER TABLE users_new RENAME TO users");
         }
     }
 }
@@ -135,14 +156,22 @@ Running `migrate:rollback` would reverse batch 3 only.
 2. **Use `IF NOT EXISTS`** in `up()` for safety
 3. **Handle both SQLite and MySQL** — check `$pdo->getAttribute(PDO::ATTR_DRIVER_NAME)`
 4. **Never modify a published migration** — create a new one instead
-5. **Test migrations** — run `migrate` then `migrate:rollback` to verify both directions
+5. **Never rename a migration that has already been run** — the `migrations` table tracks filenames; renaming breaks the tracking and would re-run the migration
+6. **Test migrations** — run `migrate` then `migrate:rollback` to verify both directions
 
 ### Plugin Migrations
 
-Plugins can include their own migrations in `plugins/{name}/migrations/`. The Migrator can be extended to scan plugin directories:
+> **Status in 0.5.0**: plugin migrations are **not yet supported automatically**. The `Migrator` scans only the core `migrations/` directory. The example below is a **proposal** for a future release — the `migrate` hook is not implemented in the core yet.
+
+Plugins that need schema changes in 0.5.0 must either:
+
+- Ship their schema changes as part of their own setup code (e.g. run `CREATE TABLE IF NOT EXISTS` on first load), or
+- Coordinate with the forum administrator to add a core migration.
+
+The following pattern is planned for a future release, where plugins can include their own migrations in `plugins/{name}/migrations/`:
 
 ```php
-// In your plugin's init():
+// In your plugin's init() — NOT YET SUPPORTED in 0.5.0:
 $pm->addHook('migrate', function() use ($pdo) {
     $pluginMigrator = new Migrator($pdo, $config, __DIR__ . '/migrations');
     $pluginMigrator->migrate();

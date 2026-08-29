@@ -29,7 +29,7 @@ Edit `config.json` to customize your installation.
     "avatar_allowed_types": ["image/jpeg", "image/png", "image/gif", "image/webp"],
 
     "base_url": "",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "plugin_manifest": "__DIR__/data/plugins.json",
     "theme_manifest": "__DIR__/data/themes.json",
     "update_manifest": "__DIR__/data/updates.json",
@@ -40,7 +40,7 @@ Edit `config.json` to customize your installation.
 
 ## Version
 
-Do not hardcode the version; the application reads it from the `VERSION` file at the project root, e.g. `0.1.0`. See [Versioning](versioning) for how to manage releases.
+Do not hardcode the version; the application reads it from the `VERSION` file at the project root, e.g. `0.5.0`. See [Versioning](versioning) for how to manage releases.
 
 ## Database
 

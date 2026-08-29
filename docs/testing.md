@@ -17,6 +17,9 @@ php tests/run.php DbQuery
 php tests/run.php Router
 php tests/run.php PluginManager
 php tests/run.php Auth
+php tests/run.php Migrator
+php tests/run.php Security
+php tests/run.php PluginRouter
 
 # Verbose output
 php tests/run.php --verbose
@@ -31,7 +34,10 @@ tests/
 ├── DbQueryTest.php       # DbQuery (query builder) tests
 ├── RouterTest.php        # Router (URL resolution + middleware) tests
 ├── PluginManagerTest.php # Hook system tests
-└── AuthTest.php          # Auth, permissions, CSRF, input validation tests
+├── AuthTest.php          # Auth, permissions, CSRF, input validation tests
+├── MigratorTest.php      # Migration engine tests
+├── SecurityTest.php      # CSRF rotation, Request sanitization, audit log tests
+└── PluginRouterTest.php  # Plugin route/middleware registration tests
 ```
 
 ## Harness API (`tests/harness.php`)
@@ -158,7 +164,7 @@ function test_dbquery_insert(): Test
 
 ### Router Tests
 
-Test URL resolution by setting `$_SERVER['REQUEST_URI']`:
+Test URL resolution by setting `$_SERVER['REQUEST_URI']` and dispatching through the `Bulletin\Router`:
 
 ```php
 function test_router_thread_url(): Test
@@ -173,10 +179,13 @@ function test_router_thread_url(): Test
     $_GET = [];
     $_SERVER['REQUEST_URI'] = '/thread/123-my-thread';
 
-    $result = Router::resolve();
+    $router = new Bulletin\Router();
+    $router->get('/thread/{id:\d+}', function($params) {
+        return ['status' => 200, 'body' => 'thread:' . $params['id']];
+    });
+    $result = $router->dispatch();
 
-    $t->assertEquals('Action resolves to thread', 'thread', $result['action'] ?? '');
-    $t->assertEquals('ID resolves correctly', '123', $result['id'] ?? '');
+    $t->assertEquals('Route matches thread pattern', 'thread:123', $result['body'] ?? '');
 
     // Restore state
     $_GET = $origGet;
@@ -253,7 +262,10 @@ function test_permissions(): Test
 | `RouterTest.php` | URL routing | 19 | Pretty URL resolution, middleware registration, parameter patterns |
 | `PluginManagerTest.php` | Hook system | 17 | Actions, filters, checks, priority, removal |
 | `AuthTest.php` | Authentication | 35 | Password hashing, CSRF, permissions, session state, ban/suspension, input validation |
-| **Total** | | **111** | |
+| `MigratorTest.php` | Migration engine | 27 | Table creation, up/down, batch tracking, pending detection, class loading |
+| `SecurityTest.php` | Security | 25 | CSRF rotation, Request sanitization, audit log |
+| `PluginRouterTest.php` | Plugin routing | 4 | Plugin route/middleware registration, `$_GET` population |
+| **Total** | | **217** | |
 
 ## Exit Codes
 

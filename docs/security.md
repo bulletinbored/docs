@@ -13,6 +13,9 @@ bulletinbored is built for a **single trusted administrator** who installs plugi
 - **User content is sanitized.** HTML saved by the editor is filtered by `sanitize_html()`: scripts/styles are stripped, generic `div`/`span`, `id`, inline `style`, and arbitrary `data-*` attributes are removed, and event handlers (`on*`) are dropped. Output is served under a per-request nonce-based CSP. Social embeds (YouTube, Twitter/X, Instagram, Facebook) are permitted only from a fixed host allow-list.
 - **Installer files do not re-appear after a core update.** `applyCoreUpdate()` removes `install.php`, `install2.php`, `install3.php`, and `api/install.php` from a deployed root once the forum is installed (`config.json` present). On a fresh
   install (no `config.json`) the scripts are kept so setup can run.
+- **CSRF tokens rotate on every successful validation.** Each POST request validates the token and immediately issues a new one, preventing replay attacks. Use `csrf_validate_request()` in POST handlers.
+- **Input sanitization is centralized.** The `Bulletin\Request` class provides a single entry point for all user input (`get()`, `post()`, `input()`), ensuring consistent sanitization and eliminating the risk that a new handler forgets to escape input.
+- **Admin actions are audit-logged.** Every state-changing admin action (user create/update/delete/ban/suspend, role changes, category changes, thread moderation, plugin/theme management) is logged to `data/logs/security.log` with admin identity, IP, timestamp, and context.
 
 ## Installing code is an act of trust
 
@@ -48,7 +51,47 @@ Every catalog entry — first-party or third-party — is **reviewed by the bull
 | `theme_verify_files` | `true` | Same check for themes. |
 | `allow_catalog_only` | `false` | When `true`, only `official: true` catalog entries can be installed. |
 
-See [Configuration](configuration#security-hardening) for details.
+## CSRF Protection
+
+CSRF tokens are per-session and rotate on every successful validation:
+
+```php
+// In POST handlers:
+if (!csrf_validate_request()) {
+    die('CSRF token invalid');
+}
+// Token is now rotated — old token is invalidated
+
+// In forms:
+echo csrf_field();  // generates <input type="hidden" name="csrf_token" value="...">
+```
+
+The `csrf_validate_request()` function validates the token from `$_POST['csrf_token']` or `$_SERVER['HTTP_X_CSRF_TOKEN']`, and if valid, issues a new token immediately. This prevents replay attacks.
+
+## Input Sanitization
+
+The `Bulletin\Request` class centralizes all user input:
+
+```php
+use Bulletin\Request;
+
+$name = Request::post('name');           // sanitized (trim + stripslashes)
+$page = Request::get('page', 1);         // with default
+$raw  = Request::raw('query');           // un-sanitized (for prepared statements)
+$has  = Request::has('field');           // existence check
+```
+
+Output escaping remains the view layer's responsibility via `escape()` at render time.
+
+## Admin Audit Log
+
+All state-changing admin actions are logged to `data/logs/security.log`:
+
+```
+[2026-08-29T16:00:00+02:00] admin_user_ban ip=127.0.0.1 {"admin_id":1,"admin_user":"admin","target_id":42}
+```
+
+Logged actions include: user create/update/delete/ban/unban/suspend, role create/update/delete, category create/update/delete, thread approve/delete/lock/sticky/move/copy, plugin enable/disable/delete, theme activate/delete, and settings changes.
 
 ## Reporting
 

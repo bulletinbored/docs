@@ -27,21 +27,56 @@ The Plugin Manager lists all discovered plugins, shows their metadata (name, ver
 
 ## Hook System
 
-Plugins can register callbacks that run when the core fires specific events:
+Plugins can register callbacks that run when the core fires specific events. Three hook types are available:
+
+- **Actions** (`runHook`): Side effects only. All callbacks fire in priority order.
+- **Filters** (`filter`): Transform a value through a chain of callbacks.
+- **Checks** (`checkHook`/`checkHookAll`): Permission/veto gates.
 
 ```php
 function myplugin_init() {
     global $pluginManager;
-    $pluginManager->addHook('after_post', function($threadId, $postId) {
-        // react to new posts
+
+    // Action: react to new posts
+    $pluginManager->addHook('post_after_create', function($postId, $data, $thread) {
+        // send notification, update stats, ...
+    });
+
+    // Filter: modify thread data before save
+    $pluginManager->addHook('thread_before_create', function(array $data): array {
+        $data['title'] = trim($data['title']);
+        return $data;
+    });
+
+    // Check: veto deletion
+    $pluginManager->addHook('thread_delete_block', function(array $thread): bool {
+        return $thread['reply_count'] > 100; // prevent deletion of popular threads
     });
 }
 ```
 
-Core events currently wired:
-- `after_thread` — fired after a thread is created (receives `$threadId`)
-- `after_post` — fired after a reply is posted (receives `$threadId`, `$postId`)
-- `user_registered` — fired after a user registers (receives `$userId`, `$username`)
+### Hook Priority
+
+Lower priority number = earlier execution. Default is 10:
+
+```php
+$pluginManager->addHook('post_after_create', $callback, 5);  // runs first
+$pluginManager->addHook('post_after_create', $callback, 15); // runs later
+```
+
+### Core Events Currently Wired
+
+**CRUD — Threads:** `thread_before_create`, `thread_after_create`, `thread_create_block`, `thread_before_update`, `thread_after_update`, `thread_before_delete`, `thread_after_delete`, `thread_delete_block`
+
+**CRUD — Posts:** `post_before_create`, `post_after_create`, `post_create_block`, `post_before_update`, `post_after_update`, `post_before_delete`, `post_after_delete`, `post_delete_block`
+
+**Rendering:** `thread_before_view`, `thread_posts_before_view`, `thread_before_render`, `thread_after_render`, `thread_not_found`, `before_render`, `frontend_before_render`, `admin_before_render`, `footer_before_render`, `render_content`
+
+**Auth:** `auth_before_verify`, `auth_login_block`, `auth_after_login`, `auth_login_failed`
+
+**Permissions:** `permission_{name}` (dynamic, e.g. `permission_can_ban_users`)
+
+**Users:** `user_registered`
 
 ## Theme Manager (`admin_themes`)
 

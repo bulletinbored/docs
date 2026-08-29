@@ -46,41 +46,116 @@ Folder-based plugins use `manifest.json`:
 
 ## Hook System
 
-Plugins register callbacks via `$pluginManager->addHook('event', $callback)`.
+Plugins register callbacks via `$pluginManager->addHook('event', $callback, $priority)`.
+
+### Hook Types
+
+| Method | Purpose | Returns |
+|---|---|---|
+| `addHook($event, $callback, $priority = 10)` | Register a callback (lower priority = earlier execution) | void |
+| `runHook($event, ...$args)` | Fire an action hook (all callbacks execute) | void |
+| `applyHook($event, ...$args)` | Return first non-null value from callbacks | mixed |
+| `filter($event, $value, ...$args)` | Chain value through all callbacks (output → input) | mixed |
+| `checkHook($event, ...$args)` | True if ANY callback returns true (veto pattern) | bool |
+| `checkHookAll($event, ...$args)` | True only if ALL callbacks return true | bool |
+| `removeHook($event, $callback)` | Unregister a callback | void |
+
+### Actions vs Filters vs Checks
+
+- **Actions** (`runHook`): Side effects only. All callbacks fire in priority order.
+- **Filters** (`filter`): Transform a value. Each callback receives the accumulated value and returns a modified version.
+- **Checks** (`checkHook`/`checkHookAll`): Permission/veto gates. Return true to allow/block.
 
 ## Core Events
 
-| Event | Arguments | When |
-|---|---|---|
-| `after_thread` | `$threadId` | After a thread is created |
-| `after_post` | `$threadId`, `$postId` | After a reply is posted |
-| `user_registered` | `$userId`, `$username` | After a user registers |
-| `before_render` | — | Before a page is rendered |
-| `frontend_before_render` | — | Before a frontend page is rendered |
-| `admin_before_render` | — | Before an admin page is rendered |
-| `footer_before_render` | — | Before the footer is rendered |
-| `render_content` | `$text` (string, raw post content) | When post content is rendered. A plugin can return replacement HTML to take over rendering (e.g. to add auto-embeds or link cards). Return `null` to fall back to the core Markdown renderer. |
+### CRUD Hooks — Threads
 
-### Example
+| Event | Type | Arguments | When |
+|---|---|---|---|
+| `thread_before_create` | filter | `$data` (array) | Before thread INSERT. Modify data before save. |
+| `thread_after_create` | action | `$threadId`, `$data` | After thread INSERT |
+| `thread_create_block` | check | `$data` | Return true to veto thread creation |
+| `thread_before_update` | filter | `$data`, `$thread` | Before thread UPDATE |
+| `thread_after_update` | action | `$threadId`, `$data`, `$thread` | After thread UPDATE |
+| `thread_before_delete` | action | `$threadId`, `$thread` | Before thread DELETE |
+| `thread_after_delete` | action | `$threadId`, `$thread` | After thread DELETE |
+| `thread_delete_block` | check | `$thread` | Return true to veto deletion |
+
+### CRUD Hooks — Posts
+
+| Event | Type | Arguments | When |
+|---|---|---|---|
+| `post_before_create` | filter | `$data`, `$thread` | Before post INSERT |
+| `post_after_create` | action | `$postId`, `$data`, `$thread` | After post INSERT |
+| `post_create_block` | check | `$data`, `$thread` | Return true to veto post creation |
+| `post_before_update` | filter | `$data`, `$post` | Before post UPDATE |
+| `post_after_update` | action | `$postId`, `$data`, `$post` | After post UPDATE |
+| `post_before_delete` | action | `$postId`, `$post` | Before post DELETE |
+| `post_after_delete` | action | `$postId`, `$threadId` | After post DELETE |
+| `post_delete_block` | check | `$post` | Return true to veto deletion |
+
+### Rendering Hooks
+
+| Event | Type | Arguments | When |
+|---|---|---|---|
+| `thread_before_view` | filter | `$thread` | Before thread data is rendered |
+| `thread_posts_before_view` | filter | `$posts`, `$thread` | Before posts array is rendered |
+| `thread_before_render` | action | `$thread`, `$posts` | Before template include |
+| `thread_after_render` | action | `$thread`, `$posts` | After template include |
+| `thread_not_found` | apply | `$threadId` | Custom 404 fallback. Return HTML to override. |
+| `before_render` | action | — | Before any page render (head injection) |
+| `frontend_before_render` | action | — | Before frontend page render |
+| `admin_before_render` | action | — | Before admin page render |
+| `footer_before_render` | action | — | Before footer render |
+| `render_content` | filter | `$text` | Post content rendering. Return HTML to override Markdown. |
+
+### Auth & Permission Hooks
+
+| Event | Type | Arguments | When |
+|---|---|---|---|
+| `auth_before_verify` | filter | `$user`, `$username`, `$password` | Before password verification |
+| `auth_login_block` | check | `$user` | Return true to block login |
+| `auth_after_login` | action | `$userId`, `$user` | After successful login |
+| `auth_login_failed` | action | `$username` | After failed login attempt |
+| `permission_{name}` | check | `$roleName` | Custom permission check (e.g. `permission_can_ban_users`) |
+
+### User Hooks
+
+| Event | Type | Arguments | When |
+|---|---|---|---|
+| `user_registered` | action | `$userId`, `$username` | After user registration |
+
+### Example: Block Thread Creation
 
 ```php
 function myplugin_init() {
     global $pluginManager;
-    $pluginManager->addHook('after_post', function($threadId, $postId) {
-        // react to new posts
+    $pluginManager->addHook('thread_create_block', function(array $data): bool {
+        return strpos($data['title'] ?? '', 'spam') !== false;
     });
 }
 ```
 
-### Render content example
+### Example: Filter Post Content Before Save
 
 ```php
 function myplugin_init() {
     global $pluginManager;
-    // Take over content rendering. Return HTML to override the core Markdown
-    // renderer, or null to fall back to it.
-    $pluginManager->addHook('render_content', function(string $text): ?string {
-        return '<div class="markdown-content">' . my_custom_parse($text) . '</div>';
+    $pluginManager->addHook('post_before_create', function(array $data, array $thread): array {
+        $data['content'] = str_replace('badword', '****', $data['content']);
+        return $data;
+    });
+}
+```
+
+### Example: Custom Permission
+
+```php
+function myplugin_init() {
+    global $pluginManager;
+    // Grant 'can_ban_users' permission to a custom role
+    $pluginManager->addHook('permission_can_ban_users', function(string $roleName): bool {
+        return $roleName === 'super_mod';
     });
 }
 ```
@@ -231,11 +306,52 @@ $pluginManager->delete('myplugin');
 $pluginManager->getVersion('myplugin');
 
 // Hooks
-$pluginManager->addHook('after_thread', $callback);
-$pluginManager->removeHook('after_thread', $callback);
-$pluginManager->runHook('after_thread', $threadId);
-$pluginManager->applyHook('after_thread', $threadId); // like runHook(), but returns the first non-null value returned by a callback (for filters that may override a core value)
+$pluginManager->addHook('event', $callback);           // priority 10 (default)
+$pluginManager->addHook('event', $callback, 5);        // higher priority = earlier
+$pluginManager->removeHook('event', $callback);
+$pluginManager->runHook('event', ...$args);            // action: fire all callbacks
+$pluginManager->applyHook('event', ...$args);          // return first non-null
+$pluginManager->filter('event', $value, ...$args);     // chain value through callbacks
+$pluginManager->checkHook('event', ...$args);          // true if any callback returns true
+$pluginManager->checkHookAll('event', ...$args);       // true if all callbacks return true
+
+// Router (new in 0.6.0)
+$pluginManager->setRouter($router);                     // bind the router (called by core, optional)
+$pluginManager->getRouter();                           // get the router instance
+$pluginManager->registerRoute('GET', '/my-plugin/endpoint', $handler);  // register a custom route
+$pluginManager->registerMiddleware('my_mw', $fn);      // register named middleware
+$pluginManager->applyRoutes();                         // apply registrations (called by core)
 ```
+
+## Custom Routes and Middleware
+
+Plugins can register custom routes and middleware during their `init()` hook. These are applied before dispatch:
+
+```php
+function myplugin_init() {
+    global $pluginManager;
+    
+    $router = $pluginManager->getRouter();
+    if (!$router) return;
+    
+    // Register a custom route
+    $pluginManager->registerRoute('GET', '/my-plugin/api', function() {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'ok']);
+        return ['status' => 200, 'body' => ''];
+    });
+    
+    // Register a custom middleware
+    $pluginManager->registerMiddleware('my_plugin_auth', function($params) {
+        if (!some_check()) {
+            return ['status' => 403, 'body' => 'Forbidden'];
+        }
+        return null;
+    });
+}
+```
+
+Route handlers receive `$params` (array of matched route parameters) and should return `null` to continue, or `['status' => int, 'body' => string]` to short-circuit the response. Optional `headers` array can be added for redirects: `['status' => 302, 'body' => '', 'headers' => ['Location: /target']]`.
 
 ## Third-party plugins
 

@@ -19,6 +19,8 @@ php tests/run.php PluginManager
 php tests/run.php Auth
 php tests/run.php Migrator
 php tests/run.php Security
+php tests/run.php Response
+php tests/run.php Markdown
 php tests/run.php PluginRouter
 
 # Verbose output
@@ -33,10 +35,12 @@ tests/
 ├── run.php               # CLI runner
 ├── DbQueryTest.php       # DbQuery (query builder) tests
 ├── E2eFlowTest.php       # End-to-end flow tests (thread lifecycle, JSON API, plugins)
-├── PluginManagerTest.php # Hook system tests
-├── AuthTest.php          # Auth, permissions, CSRF, input validation tests
+├── PluginManagerTest.php # Hook system + manifest validation tests
+├── AuthTest.php          # Auth, permissions, CSRF, AuthZ tests
 ├── MigratorTest.php      # Migration engine tests
-├── SecurityTest.php      # CSRF rotation, Request sanitization, audit log tests
+├── SecurityTest.php      # CSRF rotation, Request, audit log, trusted proxies tests
+├── ResponseTest.php      # Response object + typed Request tests
+├── MarkdownTest.php      # Markdown security tests (XSS, URL schemes)
 └── PluginRouterTest.php  # Plugin route/middleware registration tests
 ```
 

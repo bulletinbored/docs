@@ -14,6 +14,48 @@ Create plugins as single PHP files in `plugins/` or as subdirectories with a `ma
 
 ## Plugin Metadata
 
+### Manifest v1 (folder-based plugins)
+
+Folder-based plugins use `manifest.json` with the following schema:
+
+```json
+{
+    "id": "editbored",
+    "name": "EditBored",
+    "version": "1.2.0",
+    "author": "mlzog",
+    "description": "WYSIWYG Markdown editor",
+    "core": ">=0.5.0 <2.0.0",
+    "php": ">=8.1",
+    "permissions": ["posts.edit"],
+    "bootstrap": "editbored.php",
+    "files": [
+        "editbored.php",
+        "manifest.json",
+        "assets/css/editbored.css",
+        "assets/js/editbored.js",
+        "lang/en.json"
+    ]
+}
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `name` | Yes | Display name |
+| `id` | No | Stable identifier (lowercase alphanumeric + hyphens). Defaults to lowercase `name` if omitted. |
+| `version` | Yes | Semver version string |
+| `author` | No | Author name |
+| `description` | No | Short description |
+| `core` | No | Core version constraint (e.g., `>=0.5.0 <2.0.0`) |
+| `php` | No | PHP version constraint (e.g., `>=8.1`) |
+| `permissions` | No | Array of permission strings the plugin needs |
+| `bootstrap` | No | Bootstrap filename (defaults to `<id>.php`) |
+| `files` | No | Array of files for integrity verification |
+
+The manifest is validated at install time. Plugins with incompatible core/PHP versions are rejected. Legacy manifests (with only `name`, no `id`) are fully supported — the `id` is automatically derived from the `name`.
+
+### Legacy format (file-based plugins)
+
 File-based plugins expose metadata via PHPDoc comments in the bootstrap file:
 
 ```php
@@ -320,9 +362,13 @@ $pluginManager->getByName('myplugin');
 $pluginManager->isEnabled('myplugin');
 $pluginManager->enable('myplugin');
 $pluginManager->disable('myplugin');
+$pluginManager->getPluginState('myplugin');  // enabled, disabled, incompatible, corrupted, failed, not_found
+
+// Manifest validation
+$pluginManager->validateManifest($manifest);  // ['valid' => bool, 'errors' => [...]]
 
 // Localization
-$pluginManager->loadTranslations($lang);   // loads plugin/lang/{$lang}.json into the plugin:<name> scope
+$pluginManager->loadTranslations($lang);
 
 // Lifecycle
 $pluginManager->loadEnabled();
@@ -333,26 +379,20 @@ $pluginManager->delete('myplugin');
 $pluginManager->getVersion('myplugin');
 
 // Hooks
-$pluginManager->addHook('event', $callback);           // priority 10 (default)
-$pluginManager->addHook('event', $callback, 5);        // higher priority = earlier
+$pluginManager->addHook('event', $callback);
 $pluginManager->removeHook('event', $callback);
-$pluginManager->runHook('event', ...$args);            // action: fire all callbacks
-$pluginManager->applyHook('event', ...$args);          // return first non-null
-$pluginManager->filter('event', $value, ...$args);     // chain value through callbacks
-$pluginManager->checkHook('event', ...$args);          // true if any callback returns true
-$pluginManager->checkHookAll('event', ...$args);       // true if all callbacks return true
+$pluginManager->runHook('event', ...$args);
+$pluginManager->applyHook('event', ...$args);
+$pluginManager->filter('event', $value, ...$args);
+$pluginManager->checkHook('event', ...$args);
+$pluginManager->checkHookAll('event', ...$args);
 
-// CLI (new in 0.5.1)
-$pluginManager->addHook('cli', function($registry) {
-    $registry->register('command:name', 'Description', fn($args) => ...);
-});
-
-// Router (new in 0.5.0)
-$pluginManager->setRouter($router);                     // bind the router (called by core, optional)
-$pluginManager->getRouter();                           // get the router instance
-$pluginManager->registerRoute('GET', '/my-plugin/endpoint', $handler);  // register a custom route
-$pluginManager->registerMiddleware('my_mw', $fn);      // register named middleware
-$pluginManager->applyRoutes();                         // apply registrations (called by core)
+// Router
+$pluginManager->setRouter($router);
+$pluginManager->getRouter();
+$pluginManager->registerRoute('GET', '/my-plugin/endpoint', $handler);
+$pluginManager->registerMiddleware('my_mw', $fn);
+$pluginManager->applyRoutes();
 ```
 
 ## Custom Routes and Middleware

@@ -76,6 +76,8 @@ Example output of `php bb.php migrate:status`:
 2. Each file has a `up()` and `down()` method
 3. Applied migrations are tracked in the `migrations` table
 4. Migrations run in batches — rollback reverses the last batch
+5. **File-based locking** prevents concurrent migration runs
+6. **Transactions** (MySQL) ensure atomicity — failed migrations are rolled back and NOT recorded
 
 ### Creating a Migration
 

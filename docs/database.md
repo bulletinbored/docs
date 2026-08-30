@@ -97,7 +97,7 @@ $page = $db->table('threads')
 
 ## Immutability
 
-All query builder methods return a **clone** of the instance, so you can branch queries:
+All query builder methods return a **clone** of the instance, so you can branch queries. This includes `first()`, `pluck()`, and `paginate()`:
 
 ```php
 $baseQuery = $db->table('threads')->where('status', 'visible');

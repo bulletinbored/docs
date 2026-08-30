@@ -8,8 +8,9 @@ description: Understand the MVC structure, manager system, and directory layout.
 
 - **PluginManager** — handles plugin discovery, enable/disable, hook registration/execution (actions, filters, checks)
 - **ThemeManager** — handles theme discovery, activation, and CSS URL/path resolution
-- **UpdateManager** — handles version tracking and update checks for core, plugins, and themes
-- **Migrator** — file-based database migrations (`migrations/YYYYMMDD_description.php`), batch tracking, and rollbacks
+- **UpdateManager** — handles version tracking, update checks, and backup/recovery for core, plugins, and themes
+- **Migrator** — file-based database migrations with locking, transactional execution, and batch rollbacks
+- **AuthZ** — centralized authorization service (role-based permissions, ownership checks)
 
 All managers are instantiated in `index.php` (after the bootstrap) and are fully integrated into the routing layer and admin panel. The `Migrator` is also used by the CLI (`bb.php`).
 
@@ -45,10 +46,15 @@ Template helpers: `$this->e()` (escaped output), `$this->partial()`, `$this->ren
 The application is still a single upload with **no Composer, no Docker, no build step** — but the old single `index.php` has been split into small, focused files under `src/`:
 
 - `index.php` — the thin front controller. It wires the bootstrap, database, managers, registers all routes and dispatches the request through `Bulletin\Router`.
-- `src/bootstrap.php` — session start, install check, `config.json` load, i18n setup (`t()`/`pt()`/`tt()`) and a hand-written PSR-4 autoloader for the `Bulletin\` namespace (no Composer needed).
-- `src/helpers.php` — pure helper functions: `slugify()`, `url()`, `escape()`, `base_url()`, CSRF helpers, presentation helpers (`time_ago()`, `render_avatar()`, `fetch_threads()`, ...) and `send_email()`.
-- `src/Router.php` — `Bulletin\Router` — middleware-enabled request router with route groups, named parameters, and middleware pipeline.
-- `src/Request.php` — `Bulletin\Request` — centralized input sanitization (get/post/input/has/raw).
+- `src/Security.php` — security helpers: CSRF protection, rate limiting, input validation, security logging
+- `src/Response.php` — `Bulletin\Response` — HTTP response value object with `html()`, `json()`, `redirect()`, `error()` factory methods
+- `src/Errors.php` — typed HTTP exceptions (`UnauthorizedException`, `ForbiddenException`, `NotFoundException`, `ValidationException`, `ConflictException`, `TooManyRequestsException`)
+- `src/bootstrap.php` — install check, `config.json` load, i18n setup, PSR-4 autoloader (delegates to `TrustedProxies.php` and `session_setup.php`)
+- `src/helpers.php` — pure helper functions: `slugify()`, `url()`, `escape()`, `base_url()`, presentation helpers (`time_ago()`, `render_avatar()`, `fetch_threads()`, ...) and `send_email()`
+- `src/TrustedProxies.php` — trusted proxy detection for correct client IP behind reverse proxies
+- `src/session_setup.php` — session configuration and hardening
+- `src/Router.php` — `Bulletin\Router` — middleware-enabled request router with route groups, named parameters, middleware pipeline, and `can:` permission middleware.
+- `src/Request.php` — `Bulletin\Request` — centralized input sanitization (get/post/input/has/raw) with typed getters (string/int/bool/email/enum).
 - `src/Renderer.php` — `Bulletin\Renderer` — micro template engine for clean view rendering.
 - `src/setup.php` — ensures directories exist and initialises the database (SQLite/MySQL schema, defaults).
 - `src/actions/` — split action handlers:
@@ -126,6 +132,7 @@ $router->get('/data', function($params) {
 | `auth` | Require authentication, redirect to login if missing |
 | `admin` | Require admin role, 403 if unauthorized |
 | `csrf` | Validate CSRF token on POST requests |
+| `can:permission` | Require a specific permission (e.g., `can:posts.edit`) |
 
 ### Route Parameters
 
@@ -155,15 +162,21 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 │   ├── BbPdo.php          # PDO wrapper with SQLite/MySQL SQL normalization
 │   ├── DbQuery.php        # Lightweight query builder (table/where/first/insert/update/delete)
 │   ├── Migrator.php       # File-based migration engine (up/down, batches, rollback)
-│   ├── PluginManager.php  # Plugin discovery, hooks, install/delete
+│   ├── PluginManager.php  # Plugin discovery, hooks, install/delete, manifest validation, failure isolation
 │   ├── ThemeManager.php   # Theme discovery, activation
-│   ├── UpdateManager.php  # Version tracking and updates
+│   ├── UpdateManager.php  # Version tracking, updates, backup/recovery
+│   ├── AuthZ.php          # Authorization service (role-based permissions, ownership)
 │   └── repo_install.php   # Repository-based install/upgrade helpers
 ├── src/                   # Application core (no framework)
-│   ├── bootstrap.php      # session, config, i18n, PSR-4 autoloader
-│   ├── helpers.php        # slugify, url, escape, base_url, CSRF, fetch_threads, send_email, ...
-│   ├── Router.php         # Bulletin\Router — middleware-enabled request router
-│   ├── Request.php        # Bulletin\Request — centralized input sanitization
+│   ├── bootstrap.php      # install check, config, i18n, PSR-4 autoloader
+│   ├── Security.php       # CSRF, rate limiting, input validation, security logging
+│   ├── Response.php       # Bulletin\Response — HTTP response value object
+│   ├── Errors.php         # Typed HTTP exceptions
+│   ├── TrustedProxies.php # Trusted proxy detection
+│   ├── session_setup.php  # Session configuration and hardening
+│   ├── helpers.php        # slugify, url, escape, base_url, presentation helpers, send_email
+│   ├── Router.php         # Bulletin\Router — middleware-enabled request router with can: middleware
+│   ├── Request.php        # Bulletin\Request — centralized input sanitization with typed getters
 │   ├── Renderer.php       # Bulletin\Renderer — micro template engine
 │   ├── setup.php          # directory checks + database initialisation
 │   ├── actions/           # split action handlers
@@ -172,15 +185,17 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 │   │   ├── users.php      # login, register, profile, password reset
 │   │   ├── content.php    # categories, search, download
 │   │   └── misc.php       # notifications, messages
-├── tests/                 # Zero-dependency test suite
+├── tests/                 # Zero-dependency test suite (290 tests)
 │   ├── harness.php        # Test + TestSuite classes (the engine)
 │   ├── run.php            # CLI runner
 │   ├── DbQueryTest.php    # Query builder tests
 │   ├── E2eFlowTest.php    # End-to-end flow tests (thread lifecycle, JSON API, plugins)
-│   ├── PluginManagerTest.php # Hook system tests
-│   ├── AuthTest.php       # Auth, permissions, CSRF tests
+│   ├── PluginManagerTest.php # Hook system + manifest validation tests
+│   ├── AuthTest.php       # Auth, permissions, CSRF, AuthZ tests
 │   ├── MigratorTest.php   # Migration engine tests
-│   ├── SecurityTest.php   # CSRF rotation, Request, audit log tests
+│   ├── SecurityTest.php   # CSRF rotation, Request, audit log, trusted proxies tests
+│   ├── ResponseTest.php   # Response object + typed Request tests
+│   ├── MarkdownTest.php   # Markdown security tests (XSS, URL schemes)
 │   └── PluginRouterTest.php # Plugin route/middleware registration tests
 ├── views/                 # Template files
 │   ├── header.php         # Shared frontend header/footer (loads theme CSS)

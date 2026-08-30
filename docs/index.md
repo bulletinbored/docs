@@ -44,7 +44,8 @@ See [Installation](installation) for the full guide.
 - [Localization](localization) — Add new languages and manage translation files.
 - [Testing](testing) — Zero-dependency test suite, E2E flow tests.
 - [Versioning](versioning) — Semantic versioning and release management.
-- [Security Model](security) — Trust model, known risks, and hardening options.
+- [Database](database) — Lightweight query builder (DbQuery), immutability, pagination.
+- [Security Model](security) — Trust model, known risks, hardening options, trusted proxies.
 
 ## License
 

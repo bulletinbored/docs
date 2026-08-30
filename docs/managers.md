@@ -4,6 +4,20 @@ description: bulletinbored documentation
 ---
 # Managers
 
+## Authorization (`AuthZ`)
+
+The `AuthZ` service (`lib/AuthZ.php`) centralizes all authorization checks:
+
+```php
+$authz = new AuthZ($pdo);
+$authz->can($userId, 'posts.edit');           // Check permission
+$authz->canOnOwned($userId, 'posts.edit', $ownerId);  // Check with ownership
+$authz->getUserRole($userId);                  // Get user role
+$authz->getRolePermissions('moderator');       // Get role permissions
+```
+
+States: `enabled`, `disabled`, `incompatible`, `corrupted`, `failed`, `not_found`.
+
 ## Plugin Manager (`admin_plugins`)
 
 The Plugin Manager lists all discovered plugins, shows their metadata (name, version, author, description), and allows enabling/disabling them from the admin panel.

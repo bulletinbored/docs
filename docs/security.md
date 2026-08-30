@@ -50,6 +50,7 @@ Every catalog entry — first-party or third-party — is **reviewed by the bull
 | `plugin_verify_files` | `true` | Reject plugin packages whose extracted files don't match `manifest.json` `files`. |
 | `theme_verify_files` | `true` | Same check for themes. |
 | `allow_catalog_only` | `false` | When `true`, only `official: true` catalog entries can be installed. |
+| `trusted_proxies` | `["127.0.0.1", "::1"]` | List of trusted proxy IPs (supports CIDR notation). Only trust `X-Forwarded-*` headers from these IPs. |
 
 ## CSRF Protection
 
@@ -79,6 +80,8 @@ $name = Request::post('name');           // sanitized (trim + stripslashes)
 $page = Request::get('page', 1);         // with default
 $raw  = Request::raw('query');           // un-sanitized (for prepared statements)
 $has  = Request::has('field');           // existence check
+$email = Request::email('email');        // validated email or empty string
+$status = Request::enum('status', ['visible', 'hidden']); // allowlist
 ```
 
 Output escaping remains the view layer's responsibility via `escape()` at render time.

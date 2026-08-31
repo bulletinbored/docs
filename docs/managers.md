@@ -6,17 +6,54 @@ description: bulletinbored documentation
 
 ## Authorization (`AuthZ`)
 
-The `AuthZ` service (`lib/AuthZ.php`) centralizes all authorization checks:
+The `AuthZ` service (`lib/AuthZ.php`) centralizes all authorization checks. Permissions use `resource.action` notation (e.g., `posts.edit`, `threads.delete_own`):
 
 ```php
 $authz = new AuthZ($pdo);
-$authz->can($userId, 'posts.edit');           // Check permission
-$authz->canOnOwned($userId, 'posts.edit', $ownerId);  // Check with ownership
-$authz->getUserRole($userId);                  // Get user role
-$authz->getRolePermissions('moderator');       // Get role permissions
+
+// Check if user has a permission
+$authz->can($userId, 'posts.edit');
+
+// Check with ownership (uses "permission_own" variant for owners)
+$authz->canOnOwned($userId, 'posts.edit', $ownerId);
+
+// Get user role
+$authz->getUserRole($userId);
+
+// Get role permissions
+$authz->getRolePermissions('moderator');
+
+// Check if user has a specific role
+$authz->hasRole($userId, 'admin');
 ```
 
-States: `enabled`, `disabled`, `incompatible`, `corrupted`, `failed`, `not_found`.
+The `admin` middleware and `can:permission` middleware in `src/Router.php` both delegate to `AuthZ`, so admin routes require `admin.access` and `can:foo.bar` routes require the `foo.bar` permission.
+
+### Canonical Permission Registry
+
+| Permission | Description |
+|---|---|
+| `admin.access` | Access admin panel |
+| `threads.create` | Create new threads |
+| `threads.edit` / `threads.edit_own` | Edit any / own thread |
+| `threads.delete` / `threads.delete_own` | Delete any / own thread |
+| `threads.lock` | Lock/unlock threads |
+| `threads.sticky` | Sticky/unsticky threads |
+| `threads.approve` | Approve pending threads |
+| `threads.move` | Move thread to another category |
+| `threads.split` / `threads.merge` | Split/merge threads |
+| `threads.copy` | Copy thread |
+| `posts.create` | Create replies |
+| `posts.edit` / `posts.edit_own` | Edit any / own post |
+| `posts.delete` / `posts.delete_own` | Delete any / own post |
+| `users.create` / `users.edit` / `users.delete` | User management |
+| `users.ban` / `users.suspend` | Ban/suspend users |
+| `roles.manage` | Manage roles and permissions |
+| `categories.manage` | Category management |
+| `settings.manage` | Modify site settings |
+| `plugins.manage` | Plugin management |
+| `themes.manage` | Theme management |
+| `langs.manage` | Language file management |
 
 ## Plugin Manager (`admin_plugins`)
 
@@ -88,7 +125,7 @@ $pluginManager->addHook('post_after_create', $callback, 15); // runs later
 
 **Auth:** `auth_before_verify`, `auth_login_block`, `auth_after_login`, `auth_login_failed`
 
-**Permissions:** `permission_{name}` (dynamic, e.g. `permission_can_ban_users`)
+**Permissions:** `permission_{name}` (dynamic, e.g. `permission_posts.edit`)
 
 **Users:** `user_registered`
 
@@ -124,7 +161,24 @@ The Language Manager lets you upload and delete localization JSON files from the
 
 ## Update Manager (`admin_updates`)
 
-The Update Manager tracks installed versions of the core, plugins, and themes, and can apply updates.
+The UpdateManager tracks installed versions of the core, plugins, and themes, and can apply updates. Before any update it runs **preflight checks** (PHP version, disk space, writability).
+
+### Preflight Checks
+
+```php
+$errors = $updateManager->preflight('core', '1.0.0');
+// Returns array of error messages (empty = all clear)
+// Checks: PHP >= 8.1, disk space >= 50MB, root writable, config writable
+```
+
+### Backup & Recovery
+
+- `backupCore()` — creates a timestamped backup in `data/backups/core_*`
+- `restoreCoreBackup($path)` — restores from a backup
+- `listBackups()` — lists available backups (keeps last 3)
+- Failed core updates automatically restore the backup
+
+### Version tracking
 
 - Version tracking is stored in `data/updates.json`
 - Core version is loaded dynamically from the `VERSION` file via `config.json`

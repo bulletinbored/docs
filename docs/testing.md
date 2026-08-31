@@ -41,6 +41,14 @@ tests/
 ├── SecurityTest.php      # CSRF rotation, Request, audit log, trusted proxies tests
 ├── ResponseTest.php      # Response object + typed Request tests
 ├── MarkdownTest.php      # Markdown security tests (XSS, URL schemes)
+├── PluginRouterTest.php  # Plugin route/middleware registration tests
+├── UpgradeTest.php       # Upgrade pipeline tests (old schema → current)
+├── AuthHardeningTest.php # Auth hardening tests (session, tokens, enumeration)
+├── ContentHardeningTest.php # Content hardening tests (markdown, uploads, manifests)
+├── RendererTest.php      # Template engine tests (escaping, partials, globals)
+├── ModerationTest.php    # Moderation actions tests (lock, sticky, delete, split, merge)
+├── ModerationHandlerTest.php # Moderation handler integration tests
+├── DatabaseMatrixTest.php # Cross-database compatibility tests (SQLite, MySQL, MariaDB)
 └── PluginRouterTest.php  # Plugin route/middleware registration tests
 ```
 
@@ -278,14 +286,14 @@ function test_permissions(): Test
 {
     $t = new Test('Auth - Permissions');
 
-    // Setup in-memory DB with roles
+    // Setup in-memory DB with roles (resource.action notation)
     $pdo = new PDO('sqlite::memory:');
     $pdo->exec("CREATE TABLE roles (id INTEGER PRIMARY KEY, name TEXT, permissions TEXT)");
-    $pdo->exec("INSERT INTO roles VALUES (1, 'admin', '[\"can_ban\"]')");
+    $pdo->exec("INSERT INTO roles VALUES (1, 'admin', '[\"admin.access\",\"users.ban\"]')");
     $GLOBALS['pdo'] = $pdo;
 
     $_SESSION['user_role'] = 'admin';
-    $t->assertTrue('Admin has permission', user_has_permission('can_ban'));
+    $t->assertTrue('Admin has permission', user_has_permission('users.ban'));
 
     return $t;
 }
@@ -297,12 +305,51 @@ function test_permissions(): Test
 |---|---|---|---|
 | `DbQueryTest.php` | Query builder | 40 | Insert, select, where, update, delete, order, limit, offset, count, exists, paginate, insertIgnore, pluck, raw queries |
 | `E2eFlowTest.php` | End-to-end flows | 21 | Thread lifecycle, JSON API responses, plugin routes, plugin migrations, current_route_action() helper |
-| `PluginManagerTest.php` | Hook system | 17 | Actions, filters, checks, priority, removal |
-| `AuthTest.php` | Authentication | 35 | Password hashing, CSRF, permissions, session state, ban/suspension, input validation |
+| `PluginManagerTest.php` | Hook system | 29 | Actions, filters, checks, priority, removal, deleteDir, manifest validation |
+| `AuthTest.php` | Authentication | 58 | Password hashing, CSRF, permissions, session state, ban/suspension, input validation, AuthZ service |
 | `MigratorTest.php` | Migration engine | 27 | Table creation, up/down, batch tracking, pending detection, class loading |
-| `SecurityTest.php` | Security | 25 | CSRF rotation, Request sanitization, audit log |
+| `SecurityTest.php` | Security | 31 | CSRF rotation, Request sanitization, audit log, trusted proxies, rate limiter |
+| `ResponseTest.php` | Response + Request | 26 | Response object (html/json/redirect/error), typed Request accessors |
+| `UpgradeTest.php` | Upgrade pipeline | 15 | 0.5.x → current upgrade, namespaced IDs, irreversible migrations, failure atomicity |
+| `AuthHardeningTest.php` | Auth hardening | 28 | Session lifecycle, token security, CSRF rotation, rate limiting, account enumeration |
+| `ContentHardeningTest.php` | Content hardening | 26 | Markdown fuzzing, upload validation, plugin manifests, request parsing |
+| `RendererTest.php` | Template engine | 9 | Escaping, variable passing, global variables, data override |
+| `ModerationTest.php` | Moderation actions | 19 | Approve, lock/unlock, sticky/unsticky, hide, delete, move, copy, split, merge, CSRF, authorization |
+| `ModerationHandlerTest.php` | Moderation handlers | 7 | Handler integration: approve, delete, CSRF, authz, frontend lock |
+| `DatabaseMatrixTest.php` | Cross-database | 21 | Schema, CRUD, transactions, unicode, migrations, AuthZ on SQLite/MySQL/MariaDB |
 | `PluginRouterTest.php` | Plugin routing | 4 | Plugin route/middleware registration, `$_GET` population |
-| **Total** | | **175** | |
+| **Total** | | **469** | |
+
+## Database Matrix
+
+The `DatabaseMatrixTest.php` tests compatibility across database engines:
+
+| Database | Status | How to Test |
+|---|---|---|
+| SQLite | ✓ Always tested | `php tests/DatabaseMatrixTest.php` |
+| MySQL 8.0 / 8.4 | ✓ CI (GitHub Actions) | `DB_DRIVER=mysql DB_HOST=127.0.0.1 DB_NAME=test DB_USER=root DB_PASS=root php tests/DatabaseMatrixTest.php` |
+| MariaDB 10.6 / 10.11 / 11.4 | ✓ CI (GitHub Actions) | Same as MySQL (driver auto-detects) |
+
+### CI Matrix (`.github/workflows/database-matrix.yml`)
+
+```
+SQLite    ✓  PHP 8.1, 8.2, 8.3
+MySQL     ✓  8.0, 8.4  × PHP 8.1, 8.2, 8.3
+MariaDB   ✓  10.6, 10.11, 11.4  × PHP 8.1, 8.2, 8.3
+```
+
+### Running Locally with MySQL
+
+```bash
+# Start MySQL
+docker run -d --name mysql-test -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=bulletinbored_test -p 3306:3306 mysql:8.0
+
+# Run tests
+DB_DRIVER=mysql DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=bulletinbored_test DB_USER=root DB_PASS=root php tests/DatabaseMatrixTest.php
+
+# Cleanup
+docker stop mysql-test && docker rm mysql-test
+```
 
 ## Exit Codes
 

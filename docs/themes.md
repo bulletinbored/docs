@@ -13,14 +13,23 @@ Create themes as subdirectories in `themes/` with a `manifest.json` and a `style
 
 ## Theme Metadata
 
-Themes use `manifest.json` for additional metadata:
+Themes use `manifest.json` for metadata:
 
 ```json
 {
-    "name": "freshbored",
+    "id": "freshbored",
+    "name": "FreshBored",
     "version": "1.0.0",
     "author": "mlzog",
-    "description": "Default frontend theme for bulletinbored. Bootstrap 5 based, sidebar driven discussion layout."
+    "description": "Default frontend theme for bulletinbored. Bootstrap 5 based, sidebar driven discussion layout.",
+    "requires": {
+        "core": ">=0.6"
+    },
+    "files": [
+        "style.css",
+        "manifest.json",
+        "layout/default.php"
+    ]
 }
 ```
 

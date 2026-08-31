@@ -10,13 +10,15 @@ description: bulletinbored — minimal, extensible forum software with zero depe
 
 - ⚡ **Zero Dependencies** — No Composer, no Docker, no Node.js. Just PHP 8.x with PDO. Upload the files and you're live.
 - 🗄️ **SQLite & MySQL** — Choose your database. SQLite works out of the box; MySQL is supported via `config.json`.
-- 🔌 **Plugin System** — Extend functionality with simple PHP files. Hooks let you attach to forum events.
+- 🔌 **Plugin System** — Extend functionality with plugins. Hooks, custom routes, middleware, dependencies, and settings API.
 - 🎨 **Theme System** — Themes work like plugins: create a folder with a `style.css` and change the forum's look.
 - 🔗 **SEO-Friendly URLs** — Clean URLs like `/thread/1-slug` and `/category/2-name` via rewrite rules.
 - 🛡️ **User Management** — Registration, profiles with avatars, roles, moderation, private messages, and notifications built in.
-- 🌐 **Localization** — Built-in multilingual support with simple JSON translation files (EN, IT included).
-- 🔄 **Auto Updates** — Update Manager checks for new versions of core, plugins, and themes via GitHub Releases.
-- 🖥️ **Admin Panel** — Full dashboard: categories, users, moderation, settings, plugins, themes, and languages.
+- 🔐 **Centralized Authorization** — Role-based permissions with `AuthZ`, ownership-aware checks, and `can:*` middleware. No `is_admin()` bypasses.
+- 🌐 **Localization** — Built-in multilingual support with JSON translation files (EN, IT, DE, ES, FR included).
+- 🔄 **Auto Updates** — Update Manager with preflight checks, backup/restore, and GitHub Releases integration.
+- 🖥️ **Admin Panel** — Full dashboard: categories, users, moderation, settings, plugins, themes, catalog, updates.
+- 🧪 **Zero-dependency Testing** — 422 tests covering auth, content, migrations, plugins, renderer, and security.
 
 ## Repository
 

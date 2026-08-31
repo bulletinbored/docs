@@ -25,9 +25,16 @@ Folder-based plugins use `manifest.json` with the following schema:
     "version": "1.2.0",
     "author": "mlzog",
     "description": "WYSIWYG Markdown editor",
-    "core": ">=0.5.0 <2.0.0",
-    "php": ">=8.1",
+    "requires": {
+        "core": ">=0.6",
+        "php": ">=8.1"
+    },
+    "dependencies": {
+        "other-plugin": ">=1.0.0"
+    },
     "permissions": ["posts.edit"],
+    "routes": [],
+    "events": [],
     "bootstrap": "editbored.php",
     "files": [
         "editbored.php",
@@ -41,18 +48,20 @@ Folder-based plugins use `manifest.json` with the following schema:
 
 | Field | Required | Description |
 |---|---|---|
+| `id` | Yes | Stable identifier (lowercase alphanumeric + hyphens). Never changes even if name/author change. |
 | `name` | Yes | Display name |
-| `id` | No | Stable identifier (lowercase alphanumeric + hyphens). Defaults to lowercase `name` if omitted. |
 | `version` | Yes | Semver version string |
 | `author` | No | Author name |
 | `description` | No | Short description |
-| `core` | No | Core version constraint (e.g., `>=0.5.0 <2.0.0`) |
-| `php` | No | PHP version constraint (e.g., `>=8.1`) |
+| `requires` | No | Object with `core` and/or `php` version constraints |
+| `dependencies` | No | Object mapping plugin IDs to version constraints (e.g., `{"other-plugin": ">=1.0.0"}`) |
 | `permissions` | No | Array of permission strings the plugin needs |
+| `routes` | No | Array of custom route definitions |
+| `events` | No | Array of event subscriptions (documentation only) |
 | `bootstrap` | No | Bootstrap filename (defaults to `<id>.php`) |
 | `files` | No | Array of files for integrity verification |
 
-The manifest is validated at install time. Plugins with incompatible core/PHP versions are rejected. Legacy manifests (with only `name`, no `id`) are fully supported — the `id` is automatically derived from the `name`.
+The manifest is validated at install time. Plugins with incompatible core/PHP versions or unmet dependencies are rejected.
 
 ### Legacy format (file-based plugins)
 
@@ -270,12 +279,23 @@ The installer automatically detects a single top-level folder and flattens it.
 
 ## Managing Plugins
 
-- **Enable / Disable**: toggle plugin state without deleting files
-- **Delete**: removes the plugin files and clears state from `data/plugins.json`
-- **Install**: upload a ZIP to add the plugin
-- **Update**: the Update Manager can apply new versions as ZIP packages
+- **Enable / Disable**: toggle plugin state without deleting files. Enabling checks dependencies; disabling cascades to dependent plugins.
+- **Uninstall**: disables the plugin, removes its files, and clears metadata from `data/plugins.json`.
+- **Install**: upload a ZIP to add the plugin.
+- **Update**: the Update Manager can apply new versions as ZIP packages.
+- **Recovery**: if a plugin fails to load at boot, it is automatically disabled. Use `getFailedPlugins()` to list them and `recoverPlugin()` to disable them manually.
 
-### Directory Structure
+### Plugin Lifecycle
+
+```
+discovered → installed → enabled → disabled → enabled
+                  ↓           ↓
+              incompatible   failed → disabled
+                  ↓
+              uninstall
+```
+
+A plugin failure never prevents the forum from booting — the failure is isolated and the plugin is disabled automatically.
 
 ```
 plugins/
@@ -360,9 +380,16 @@ $pluginManager->getByName('myplugin');
 
 // State
 $pluginManager->isEnabled('myplugin');
-$pluginManager->enable('myplugin');
-$pluginManager->disable('myplugin');
+$pluginManager->enable('myplugin');   // Checks dependencies before enabling
+$pluginManager->disable('myplugin');  // Cascades to dependent plugins
 $pluginManager->getPluginState('myplugin');  // enabled, disabled, incompatible, corrupted, failed, not_found
+
+// Dependencies
+$pluginManager->checkDependencies('myplugin');  // ['compatible' => bool, 'reason' => '...']
+
+// Settings
+$pluginManager->getSetting('myplugin', 'key', $default);
+$pluginManager->setSetting('myplugin', 'key', $value);
 
 // Manifest validation
 $pluginManager->validateManifest($manifest);  // ['valid' => bool, 'errors' => [...]]
@@ -373,7 +400,11 @@ $pluginManager->loadTranslations($lang);
 // Lifecycle
 $pluginManager->loadEnabled();
 $pluginManager->installFromZip('/path/to/plugin.zip');
-$pluginManager->delete('myplugin');
+$pluginManager->uninstall('myplugin');  // disable → remove files → remove metadata
+$pluginManager->recoverPlugin('myplugin');  // Disable a failed plugin
+
+// Failure recovery
+$pluginManager->getFailedPlugins();  // List plugins that failed to load
 
 // Versioning
 $pluginManager->getVersion('myplugin');

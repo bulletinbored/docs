@@ -59,7 +59,7 @@ CSRF tokens are per-session and rotate on every successful validation:
 ```php
 // In POST handlers:
 if (!csrf_validate_request()) {
-    die('CSRF token invalid');
+    throw new \Bulletin\ForbiddenException('CSRF token invalid');
 }
 // Token is now rotated — old token is invalidated
 
@@ -86,6 +86,49 @@ $status = Request::enum('status', ['visible', 'hidden']); // allowlist
 
 Output escaping remains the view layer's responsibility via `escape()` at render time.
 
+## Authorization
+
+All authorization is centralized through the `AuthZ` service (`lib/AuthZ.php`). Handlers must never check `is_admin()` or `$_SESSION['user_role']` directly — they use `$authz->can()` and `$authz->canOnOwned()` instead.
+
+```php
+global $authz;
+$userId = (int)$_SESSION['user_id'];
+
+// Check a permission
+if (!$authz->can($userId, 'posts.edit')) {
+    throw new \Bulletin\ForbiddenException('Not authorized');
+}
+
+// Check with ownership (uses "permission_own" variant for owners)
+if (!$authz->canOnOwned($userId, 'posts.edit', (int)$post['user_id'])) {
+    throw new \Bulletin\ForbiddenException('Not authorized');
+}
+```
+
+Permissions use `resource.action` notation (e.g., `posts.edit`, `threads.delete`, `admin.access`). The full registry is documented in `lib/AuthZ.php`.
+
+| Permission | Description |
+|---|---|
+| `admin.access` | Access admin panel |
+| `threads.create` | Create new threads |
+| `threads.edit` / `threads.edit_own` | Edit any / own thread |
+| `threads.delete` / `threads.delete_own` | Delete any / own thread |
+| `threads.lock` | Lock/unlock threads |
+| `threads.sticky` | Sticky/unsticky threads |
+| `threads.approve` | Approve pending threads |
+| `threads.move` | Move thread to another category |
+| `threads.split` / `threads.merge` | Split/merge threads |
+| `posts.create` | Create replies |
+| `posts.edit` / `posts.edit_own` | Edit any / own post |
+| `posts.delete` / `posts.delete_own` | Delete any / own post |
+| `users.create` / `users.edit` / `users.delete` | User management |
+| `users.ban` / `users.suspend` | Ban/suspend users |
+| `roles.manage` | Manage roles and permissions |
+| `categories.manage` | Category management |
+| `settings.manage` | Modify site settings |
+| `plugins.manage` | Plugin management |
+| `themes.manage` | Theme management |
+
 ## Admin Audit Log
 
 All state-changing admin actions are logged to `data/logs/security.log`:
@@ -95,6 +138,20 @@ All state-changing admin actions are logged to `data/logs/security.log`:
 ```
 
 Logged actions include: user create/update/delete/ban/unban/suspend, role create/update/delete, category create/update/delete, thread approve/delete/lock/sticky/move/copy, plugin enable/disable/delete, theme activate/delete, and settings changes.
+
+## Authentication Hardening
+
+- **Session lifecycle**: Sessions are regenerated on login. Privilege changes (role update) are reflected immediately in the session.
+- **Token security**: Email verification and password reset tokens are stored as SHA-256 hashes (never raw). Tokens expire after 24 hours (email) or 1 hour (reset) and are single-use.
+- **Account enumeration prevention**: Login errors are generic ("Invalid credentials") — they don't reveal whether the username exists.
+- **CSRF protection**: Tokens rotate on every successful validation via `csrf_validate_request()`. Use `csrf_validate_request()` in all POST handlers.
+- **Rate limiting**: Login (5/15min), register (5/hr), forgot-password (5/hr), reset-password (10/hr) are rate-limited per client IP.
+
+## Content Hardening
+
+- **Markdown fuzzing**: Tested against nested markdown, Unicode normalization, very long input (15000+ chars), malformed tags, attribute breakout vectors.
+- **Upload validation**: Extension whitelist, MIME type verification, size limits, content validation. Uploaded files use generated IDs (not user-supplied names).
+- **Plugin manifest validation**: v1 schema validated at install time — missing name, invalid ID format, incompatible core/PHP versions, and unmet dependencies are rejected.
 
 ## Reporting
 

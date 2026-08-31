@@ -61,10 +61,10 @@ Example output of `php bb.php migrate:status`:
 +--------------------------------+--------+-------+---------------------+
 | Migration                      | Source | Batch | Ran At              |
 +--------------------------------+--------+-------+---------------------+
-| 20260829_initial_schema        | core   | 1     | 2026-08-29 14:40:01 |
-| 20260830_add_user_bio          | core   | 2     | 2026-08-30 09:12:44 |
-| 20260901_create_tags_table     | myplugin | 2   | 2026-09-01 10:00:00 |
-| 20260902_add_custom_table      | myplugin | —   | pending             |
+| core:20260829_initial_schema   | core   | 1     | 2026-08-29 14:40:01 |
+| core:20260831_upgrade_05x      | core   | 2     | 2026-08-31 10:00:00 |
+| myplugin:20260901_create_tags   | myplugin | 2   | 2026-09-01 10:00:00 |
+| myplugin:20260902_add_custom    | myplugin | —   | pending             |
 +--------------------------------+--------+-------+---------------------+
 ```
 
@@ -73,11 +73,45 @@ Example output of `php bb.php migrate:status`:
 ### How It Works
 
 1. **Migration files** live in `migrations/` directory
-2. Each file has a `up()` and `down()` method
-3. Applied migrations are tracked in the `migrations` table
-4. Migrations run in batches — rollback reverses the last batch
-5. **File-based locking** prevents concurrent migration runs
-6. **Transactions** (MySQL) ensure atomicity — failed migrations are rolled back and NOT recorded
+2. Each file has `up()` and `down()` methods, plus optional `irreversible()` method
+3. Migration IDs are **namespaced**: `core:filename` for core, `pluginname:filename` for plugins
+4. Applied migrations are tracked in the `migrations` table
+5. Migrations run in batches — rollback reverses the last batch
+6. **File-based locking** prevents concurrent migration runs
+7. **Transactions** (MySQL) ensure atomicity — failed migrations are rolled back and NOT recorded
+
+### Migration Contract
+
+```php
+class MyMigration
+{
+    /**
+     * Apply the schema change.
+     */
+    public function up(PDO $pdo): void
+    {
+        // ...
+    }
+
+    /**
+     * Reverse the schema change.
+     * Skipped if irreversible() returns true.
+     */
+    public function down(PDO $pdo): void
+    {
+        // ...
+    }
+
+    /**
+     * Declare this migration as one-way.
+     * When true, rollback() skips down() and only removes the tracking record.
+     */
+    public function irreversible(): bool
+    {
+        return false;
+    }
+}
+```
 
 ### Creating a Migration
 
@@ -224,8 +258,21 @@ The `$registry` object provides:
 2. **Use `IF NOT EXISTS`** in `up()` for safety
 3. **Handle both SQLite and MySQL** — check `$pdo->getAttribute(PDO::ATTR_DRIVER_NAME)`
 4. **Never modify a published migration** — create a new one instead
-5. **Never rename a migration that has already been run** — the `migrations` table tracks filenames; renaming breaks the tracking and would re-run the migration
+5. **Never rename a migration that has already been run** — the `migrations` table tracks names; renaming breaks the tracking and would re-run the migration
 6. **Test migrations** — run `migrate` then `migrate:rollback` to verify both directions
+7. **Use `irreversible()` for destructive changes** — if `down()` cannot safely reverse the change (e.g., data migration), declare it irreversible
+
+### Upgrade Fixtures
+
+The test suite includes upgrade fixtures in `tests/fixtures/upgrades/` that simulate old database states (e.g., 0.5.x schema). These verify that migrations correctly transform old data without loss:
+
+```
+tests/
+  fixtures/
+    upgrades/
+      0.5.x.php    — Schema + data for pre-0.6.0 installations
+  UpgradeTest.php   — Upgrade pipeline tests
+```
 
 ### Plugin Migrations
 
@@ -240,7 +287,7 @@ plugins/
     myplugin.php
 ```
 
-The `Migrator` automatically scans `plugins/*/migrations/` when running `bb migrate`. Plugin migrations are tracked alongside core migrations, with a `source` column indicating the origin (`core` or plugin folder name).
+The `Migrator` automatically scans `plugins/*/migrations/` when running `bb migrate`. Plugin migrations are tracked alongside core migrations with a **namespaced ID** (`myplugin:20260829_add_my_table`) that prevents collisions with core migrations.
 
 ```php
 // In bb.php — plugin paths are auto-discovered

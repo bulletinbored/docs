@@ -10,7 +10,7 @@ description: Understand the MVC structure, manager system, and directory layout.
 - **ThemeManager** — handles theme discovery, activation, and CSS URL/path resolution
 - **UpdateManager** — handles version tracking, update checks, and backup/recovery for core, plugins, and themes
 - **Migrator** — file-based database migrations with locking, transactional execution, and batch rollbacks
-- **AuthZ** — centralized authorization service (role-based permissions, ownership checks)
+- **AuthZ** — centralized authorization service (role-based permissions, ownership checks, `can:permission` middleware)
 
 All managers are instantiated in `index.php` (after the bootstrap) and are fully integrated into the routing layer and admin panel. The `Migrator` is also used by the CLI (`bb.php`).
 
@@ -48,21 +48,31 @@ The application is still a single upload with **no Composer, no Docker, no build
 - `index.php` — the thin front controller. It wires the bootstrap, database, managers, registers all routes and dispatches the request through `Bulletin\Router`.
 - `src/Security.php` — security helpers: CSRF protection, rate limiting, input validation, security logging
 - `src/Response.php` — `Bulletin\Response` — HTTP response value object with `html()`, `json()`, `redirect()`, `error()` factory methods
-- `src/Errors.php` — typed HTTP exceptions (`UnauthorizedException`, `ForbiddenException`, `NotFoundException`, `ValidationException`, `ConflictException`, `TooManyRequestsException`)
+- `src/Errors.php` — typed HTTP exceptions (`UnauthorizedException`, `ForbiddenException`, `NotFoundException`, `ValidationException`, `ConflictException`, `TooManyRequestsException`, `MethodNotAllowedException`)
 - `src/bootstrap.php` — install check, `config.json` load, i18n setup, PSR-4 autoloader (delegates to `TrustedProxies.php` and `session_setup.php`)
 - `src/helpers.php` — pure helper functions: `slugify()`, `url()`, `escape()`, `base_url()`, presentation helpers (`time_ago()`, `render_avatar()`, `fetch_threads()`, ...) and `send_email()`
 - `src/TrustedProxies.php` — trusted proxy detection for correct client IP behind reverse proxies
 - `src/session_setup.php` — session configuration and hardening
-- `src/Router.php` — `Bulletin\Router` — middleware-enabled request router with route groups, named parameters, middleware pipeline, and `can:` permission middleware.
+- `src/Router.php` — `Bulletin\Router` — middleware-enabled request router with route groups, named parameters, middleware pipeline, `can:` permission middleware, and top-level `HttpException` catching.
 - `src/Request.php` — `Bulletin\Request` — centralized input sanitization (get/post/input/has/raw) with typed getters (string/int/bool/email/enum).
 - `src/Renderer.php` — `Bulletin\Renderer` — micro template engine for clean view rendering.
 - `src/setup.php` — ensures directories exist and initialises the database (SQLite/MySQL schema, defaults).
 - `src/actions/` — split action handlers:
-  - `admin.php` — admin panel, settings, updates, catalog
-  - `posts.php` — threads, replies, moderation
-  - `users.php` — login, register, profile, password reset
-  - `content.php` — categories, search, download
-  - `misc.php` — notifications, messages
+   - `admin.php` — dispatcher that includes modular admin handlers:
+     - `admin/settings.php` — site settings, SMTP, image upload
+     - `admin/moderation.php` — thread/post moderation, split/merge
+     - `admin/users.php` — user management, roles, create/edit/delete
+     - `admin/categories.php` — category CRUD and ordering
+     - `admin/langs.php` — language management
+     - `admin/diagnostics.php` — system diagnostics
+     - `admin/plugins.php` — plugin management
+     - `admin/themes.php` — theme management
+     - `admin/catalog.php` — extension catalog
+     - `admin/updates.php` — core/extension updates
+   - `posts.php` — threads, replies, moderation
+   - `users.php` — login, register, profile, password reset
+   - `content.php` — categories, search, download
+   - `misc.php` — markdown preview, mention autocomplete
 
 Key traits that remain unchanged:
 
@@ -130,9 +140,9 @@ $router->get('/data', function($params) {
 |---|---|
 | `guest` | Redirect logged-in users away (for login/register pages) |
 | `auth` | Require authentication, redirect to login if missing |
-| `admin` | Require admin role, 403 if unauthorized |
+| `admin` | Require `admin.access` permission via AuthZ, 403 if unauthorized |
 | `csrf` | Validate CSRF token on POST requests |
-| `can:permission` | Require a specific permission (e.g., `can:posts.edit`) |
+| `can:permission` | Require a specific permission via AuthZ (e.g., `can:moderation.manage`) |
 
 ### Route Parameters
 
@@ -156,7 +166,7 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 ├── nginx.conf             # Nginx server block with rewrite rules (0.5.0)
 ├── web.config             # IIS URL Rewrite rules (0.5.0)
 ├── VERSION                # Single-source-of-truth version file
-├── migrations/            # File-based database migrations
+├── migrations/            # File-based database migrations (namespaced IDs: core:, plugin:)
 │   └── YYYYMMDD_description.php
 ├── lib/                   # Backend managers and data layer
 │   ├── BbPdo.php          # PDO wrapper with SQLite/MySQL SQL normalization
@@ -185,7 +195,7 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 │   │   ├── users.php      # login, register, profile, password reset
 │   │   ├── content.php    # categories, search, download
 │   │   └── misc.php       # notifications, messages
-├── tests/                 # Zero-dependency test suite (290 tests)
+├── tests/                 # Zero-dependency test suite (326 tests)
 │   ├── harness.php        # Test + TestSuite classes (the engine)
 │   ├── run.php            # CLI runner
 │   ├── DbQueryTest.php    # Query builder tests

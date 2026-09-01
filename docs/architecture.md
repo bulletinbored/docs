@@ -50,7 +50,15 @@ The application is still a single upload with **no Composer, no Docker, no build
 - `src/Response.php` — `Bulletin\Response` — HTTP response value object with `html()`, `json()`, `redirect()`, `error()` factory methods
 - `src/Errors.php` — typed HTTP exceptions (`UnauthorizedException`, `ForbiddenException`, `NotFoundException`, `ValidationException`, `ConflictException`, `TooManyRequestsException`, `MethodNotAllowedException`)
 - `src/bootstrap.php` — install check, `config.json` load, i18n setup, PSR-4 autoloader (delegates to `TrustedProxies.php` and `session_setup.php`)
-- `src/helpers.php` — pure helper functions: `slugify()`, `url()`, `escape()`, `base_url()`, presentation helpers (`time_ago()`, `render_avatar()`, `fetch_threads()`, ...) and `send_email()`
+- `src/helpers.php` — loads helper modules from `src/Helpers/` and remaining helpers (`base_url()`, `redirect()`)
+- `src/Helpers/Url.php` — URL generation (`url()`, `slugify()`, `current_route_action()`)
+- `src/Helpers/AuthHelpers.php` — auth helpers (`is_logged_in()`, `is_admin()`, `can_view_thread()`, `user_has_permission()`, `validate_password_strength()`)
+- `src/Helpers/Upload.php` — upload validation (`validate_upload()`, `get_uploaded_images()`)
+- `src/Helpers/Mail.php` — email sending (`send_email()` via SMTP or PHP mail)
+- `src/Helpers/Notifications.php` — notification helpers (`notify_thread_reply()`, `notify_admin_new_user()`, `notify_mentioned_users()`, `create_notification()`)
+- `src/Helpers/Text.php` — text/content helpers (`escape()`, `validate_input()`, `clean_text()`, `time_ago()`, `compact_number()`, `excerpt()`, `marked_parse()`)
+- `src/Helpers/Avatar.php` — avatar rendering (`avatar_initial()`, `avatar_color()`, `render_avatar()`)
+- `src/Helpers/Data.php` — data fetching (`sidebar_categories()`, `forum_statistics()`, `thread_sort_options()`, `fetch_threads()`)
 - `src/TrustedProxies.php` — trusted proxy detection for correct client IP behind reverse proxies
 - `src/session_setup.php` — session configuration and hardening
 - `src/Router.php` — `Bulletin\Router` — middleware-enabled request router with route groups, named parameters, middleware pipeline, `can:` permission middleware, and top-level `HttpException` catching.
@@ -69,7 +77,10 @@ The application is still a single upload with **no Composer, no Docker, no build
      - `admin/themes.php` — theme management
      - `admin/catalog.php` — extension catalog
      - `admin/updates.php` — core/extension updates
-   - `posts.php` — threads, replies, moderation
+   - `posts.php` — dispatcher for post/thread actions (loads `posts-thread.php`, `posts-new.php`, `posts-edit.php`)
+    - `posts-thread.php` — thread view, watch, unwatch, image upload
+    - `posts-new.php` — new thread creation
+    - `posts-edit.php` — reply, edit post, delete post, edit thread, delete thread
    - `users.php` — login, register, profile, password reset
    - `content.php` — categories, search, download
    - `misc.php` — markdown preview, mention autocomplete
@@ -182,16 +193,29 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 │   ├── Security.php       # CSRF, rate limiting, input validation, security logging
 │   ├── Response.php       # Bulletin\Response — HTTP response value object
 │   ├── Errors.php         # Typed HTTP exceptions
-│   ├── TrustedProxies.php # Trusted proxy detection
+│   ├── TrustedProxies.php # Trusted proxy detection (IPv4/IPv6/CIDR)
 │   ├── session_setup.php  # Session configuration and hardening
-│   ├── helpers.php        # slugify, url, escape, base_url, presentation helpers, send_email
-│   ├── Router.php         # Bulletin\Router — middleware-enabled request router with can: middleware
-│   ├── Request.php        # Bulletin\Request — centralized input sanitization with typed getters
+│   ├── App.php            # ApplicationContext — centralized state (replaces $GLOBALS)
+│   ├── helpers.php        # loads helper modules from src/Helpers/
+│   ├── Helpers/           # modular helper functions
+│   │   ├── Url.php        # URL generation, slugify, current_route_action
+│   │   ├── AuthHelpers.php # auth helpers, can_view_thread, validate_password_strength
+│   │   ├── Upload.php     # upload validation, get_uploaded_images
+│   │   ├── Mail.php       # send_email (SMTP + PHP mail)
+│   │   ├── Notifications.php # notifications and admin alerts
+│   │   ├── Text.php       # escape, validate_input, time_ago, excerpt, marked_parse
+│   │   ├── Avatar.php     # avatar_initial, avatar_color, render_avatar
+│   │   └── Data.php       # sidebar_categories, forum_statistics, fetch_threads
+│   ├── Router.php         # Bulletin\Router — middleware-enabled request router
+│   ├── Request.php        # Bulletin\Request — centralized input sanitization
 │   ├── Renderer.php       # Bulletin\Renderer — micro template engine
-│   ├── setup.php          # directory checks + database initialisation
+│   ├── setup.php          # directory checks + database initialisation (via Migrator)
 │   ├── actions/           # split action handlers
 │   │   ├── admin.php      # admin panel, settings, updates, catalog
-│   │   ├── posts.php      # threads, replies, moderation
+│   │   ├── posts.php      # dispatcher (loads posts-thread, posts-new, posts-edit)
+│   │   ├── posts-thread.php # thread view, watch, unwatch, image upload
+│   │   ├── posts-new.php  # new thread creation
+│   │   ├── posts-edit.php # reply, edit, delete post/thread
 │   │   ├── users.php      # login, register, profile, password reset
 │   │   ├── content.php    # categories, search, download
 │   │   └── misc.php       # notifications, messages

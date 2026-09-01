@@ -9,11 +9,20 @@ bulletinbored is built for a **single trusted administrator** who installs plugi
 ## What is hardened
 
 - **Zip Slip is mitigated everywhere a package is extracted.** `PluginManager`, `ThemeManager`, `UpdateManager`, and the shared `extract_zip()` all validate every archive entry and reject `..` path traversal and absolute paths before writing.
-- **Language packs are JSON and never executed.** Uploaded or installed translation files are parsed as plain data (string → string), so a malicious language file cannot lead to remote code execution.
+- **Language packs are JSON only — no `eval()`.** Uploaded or installed translation files are parsed as plain JSON data. PHP language files are no longer supported, eliminating the supply-chain RCE vector.
+- **TLS verification is enforced.** All update downloads (core, plugins, themes) verify the server certificate with `CURLOPT_SSL_VERIFYPEER=true` and `CURLOPT_SSL_VERIFYHOST=2`.
+- **Attachment authorization.** `/download/{id}` verifies `can_view_thread()` before serving files. Attachments belonging to hidden/pending threads are protected by the same policy as the thread itself.
+- **Plugin dependency graph.** Circular dependencies are detected and rejected. Disabling a plugin recursively disables all plugins that depend on it.
+- **Core update aborts if backup fails.** The updater no longer proceeds without a safety net — if the backup step fails, the update is aborted.
+- **Application state centralized.** The `App` class replaces scattered `$GLOBALS` access, reducing hidden coupling and making the trust boundary easier to reason about.
+- **CSP tightened.** Scripts require a nonce. `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'` are enforced.
+- **TrustedProxies IPv6 support.** The trusted proxy detection now supports IPv6 addresses and CIDR notation.
+- **`shell_exec()` removed.** Git detection in diagnostics and repo_install now uses `exec()` with return code checking instead of `shell_exec()`.
+- **Code modularized.** `helpers.php` fully split into `src/Helpers/` (Url, AuthHelpers, Upload, Mail, Notifications, Text, Avatar, Data). `posts.php` split into `posts-thread.php`, `posts-new.php`, `posts-edit.php`. All handlers use `App::getInstance()` instead of `global $pdo`. Reduces file complexity and eliminates global state coupling.
 - **User content is sanitized.** HTML saved by the editor is filtered by `sanitize_html()`: scripts/styles are stripped, generic `div`/`span`, `id`, inline `style`, and arbitrary `data-*` attributes are removed, and event handlers (`on*`) are dropped. Output is served under a per-request nonce-based CSP. Social embeds (YouTube, Twitter/X, Instagram, Facebook) are permitted only from a fixed host allow-list.
 - **Installer files do not re-appear after a core update.** `applyCoreUpdate()` removes `install.php`, `install2.php`, `install3.php`, and `api/install.php` from a deployed root once the forum is installed (`config.json` present). On a fresh
   install (no `config.json`) the scripts are kept so setup can run.
-- **CSRF tokens rotate on every successful validation.** Each POST request validates the token and immediately issues a new one, preventing replay attacks. Use `csrf_validate_request()` in POST handlers.
+- **CSRF tokens rotate on every successful validation.** Each POST request validates the token and immediately issues a new one, preventing replay attacks. Use `csrf_validate_request()` in POST handlers. All state-changing operations (including watch/unwatch/logout) use POST with CSRF protection.
 - **Input sanitization is centralized.** The `Bulletin\Request` class provides a single entry point for all user input (`get()`, `post()`, `input()`), ensuring consistent sanitization and eliminating the risk that a new handler forgets to escape input.
 - **Admin actions are audit-logged.** Every state-changing admin action (user create/update/delete/ban/suspend, role changes, category changes, thread moderation, plugin/theme management) is logged to `data/logs/security.log` with admin identity, IP, timestamp, and context.
 

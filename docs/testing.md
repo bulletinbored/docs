@@ -49,6 +49,8 @@ tests/
 ├── ModerationTest.php    # Moderation actions tests (lock, sticky, delete, split, merge)
 ├── ModerationHandlerTest.php # Moderation handler integration tests
 ├── DatabaseMatrixTest.php # Cross-database compatibility tests (SQLite, MySQL, MariaDB)
+├── SecurityFixesTest.php # Security fixes tests (eval removal, TLS, attachment auth, trusted proxies)
+├── HelpersTest.php       # Helper module tests (Text, Avatar, Data, AuthHelpers)
 └── PluginRouterTest.php  # Plugin route/middleware registration tests
 ```
 

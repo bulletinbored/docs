@@ -369,6 +369,18 @@ restricted by the CSP `frame-src` allow-list, not by `script-src`.
 
 Avoid inline event handlers (`onclick`, `onload`, ...); they are blocked by the CSP. Attach listeners from an external script or a nonce'd inline script instead.
 
+## Architecture
+
+The plugin system is split across three classes:
+
+| Class | File | Responsibility |
+|---|---|---|
+| `PluginManager` | `lib/PluginManager.php` | Orchestration: hooks, enable/disable, lifecycle, settings, router |
+| `PluginDiscovery` | `lib/PluginDiscovery.php` | Filesystem scanning, metadata/manifest parsing |
+| `PackageInstaller` | `lib/PackageInstaller.php` | ZIP extraction, file verification, atomic install |
+
+`PluginManager` delegates filesystem operations to `PluginDiscovery` and installation to `PackageInstaller`.
+
 ## Plugin Manager API
 
 ```php
@@ -386,6 +398,8 @@ $pluginManager->getPluginState('myplugin');  // enabled, disabled, incompatible,
 
 // Dependencies
 $pluginManager->checkDependencies('myplugin');  // ['compatible' => bool, 'reason' => '...']
+$pluginManager->detectCycle('myplugin');        // Returns cycle path or null
+$pluginManager->getDependents('myplugin');      // Plugins that depend on this one
 
 // Settings
 $pluginManager->getSetting('myplugin', 'key', $default);
@@ -393,13 +407,14 @@ $pluginManager->setSetting('myplugin', 'key', $value);
 
 // Manifest validation
 $pluginManager->validateManifest($manifest);  // ['valid' => bool, 'errors' => [...]]
+$pluginManager->normalizeManifest($manifest); // Derive 'id' from 'name'
 
 // Localization
 $pluginManager->loadTranslations($lang);
 
 // Lifecycle
 $pluginManager->loadEnabled();
-$pluginManager->installFromZip('/path/to/plugin.zip');
+$pluginManager->installFromRepo('https://github.com/user/repo', 'v1.0.0');
 $pluginManager->uninstall('myplugin');  // disable → remove files → remove metadata
 $pluginManager->recoverPlugin('myplugin');  // Disable a failed plugin
 

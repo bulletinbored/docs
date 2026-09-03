@@ -163,6 +163,46 @@ The Language Manager lets you upload and delete localization JSON files from the
 
 The UpdateManager tracks installed versions of the core, plugins, and themes, and can apply updates. Before any update it runs **preflight checks** (PHP version, disk space, writability).
 
+### Architecture
+
+The update system is split across three classes:
+
+| Class | File | Responsibility |
+|---|---|---|
+| `UpdateManager` | `lib/UpdateManager.php` | Orchestration: version tracking, checkAll, applyUpdate |
+| `UpdateFetcher` | `lib/UpdateFetcher.php` | HTTP requests, caching, remote version fetching |
+| `UpdateBackup` | `lib/UpdateBackup.php` | Core backup/restore, recursive copy/delete |
+
+`UpdateManager` delegates HTTP/cache operations to `UpdateFetcher` and backup operations to `UpdateBackup`.
+
+### API
+
+```php
+// Version tracking
+$updateManager->setVersion('plugin', 'myplugin', '1.2.0');
+$updateManager->getVersion('plugin', 'myplugin');
+$updateManager->recordCheck('plugin', 'myplugin', '1.2.0');
+
+// Check for updates
+$results = $updateManager->checkAll($coreVersion, $pluginManager, $themeManager, $catalog);
+
+// Apply updates
+$updateManager->applyCoreUpdate('v1.0.0');
+$updateManager->applyExtensionUpdate('plugin', 'myplugin', 'v1.2.0');
+$updateManager->applyUpdate('plugin', 'myplugin', '/path/to/file.zip');
+
+// Preflight checks
+$errors = $updateManager->preflight('core', '1.0.0');
+
+// Backup & recovery
+$updateManager->backupCore();
+$updateManager->restoreCoreBackup($path);
+$updateManager->listBackups();
+
+// Remote version (direct)
+$version = $updateManager->getRemoteVersion('plugin', 'myplugin', $repoUrl);
+```
+
 ### Preflight Checks
 
 ```php
@@ -221,5 +261,21 @@ If `update_server` is not a GitHub URL, the Update Manager falls back to fetchin
 
 - Core updates are downloaded automatically from GitHub releases and extracted into the forum root.
 - Plugin and theme updates can be downloaded automatically from GitHub if a `repo` URL is defined in `catalog.json`.
-- ZIP upload via the admin panel is still supported as a fallback for plugin/theme updates.
+- ZIP upload via the admin panel is supported for plugin/theme updates.
 - After extraction, version metadata is updated automatically.
+
+#### `applyUpdate()` behavior
+
+`applyUpdate()` dispatches to different strategies based on the `$type` parameter:
+
+- **`plugin` / `theme`** — Uses atomic rename in the extension's directory (`plugins/{name}` or `themes/{name}`):
+  1. Runs preflight checks (disk space, writability)
+  2. Extracts the ZIP to a temporary directory inside the extension folder
+  3. Renames the existing extension directory to `_old_{name}_{uniqid}` (if present)
+  4. Atomically renames the extracted source to the target directory
+  5. On failure, rolls back by restoring the old directory
+  6. Validates the target directory is not empty
+  7. Detects version from `manifest.json` or PHP file header
+  8. Syncs version metadata into the package
+
+- **`core`** — Extracts into the forum root (legacy behavior for manual core ZIP uploads)

@@ -22,6 +22,15 @@ php tests/run.php Security
 php tests/run.php Response
 php tests/run.php Markdown
 php tests/run.php PluginRouter
+php tests/run.php Registration
+php tests/run.php Installer
+php tests/run.php SecurityHardening
+php tests/run.php ContentCrud
+php tests/run.php E2eIntegration
+php tests/run.php DatabaseIntegrity
+php tests/run.php Suggested
+php tests/run.php UpdateManager
+php tests/run.php PluginTheme
 
 # Verbose output
 php tests/run.php --verbose
@@ -51,7 +60,16 @@ tests/
 ├── DatabaseMatrixTest.php # Cross-database compatibility tests (SQLite, MySQL, MariaDB)
 ├── SecurityFixesTest.php # Security fixes tests (eval removal, TLS, attachment auth, trusted proxies)
 ├── HelpersTest.php       # Helper module tests (Text, Avatar, Data, AuthHelpers)
-└── PluginRouterTest.php  # Plugin route/middleware registration tests
+├── PluginRouterTest.php  # Plugin route/middleware registration tests
+├── RegistrationTest.php  # User registration, login, validation, ban enforcement tests
+├── InstallerTest.php     # Installation process tests
+├── SecurityHardeningTest.php # SQL injection, upload security, security headers tests
+├── ContentCrudTest.php   # Thread creation, replies, viewing, pagination tests
+├── E2eIntegrationTest.php # End-to-end flow tests (user journeys)
+├── DatabaseIntegrityTest.php # Foreign keys, constraints, counters, soft-delete tests
+├── SuggestedTest.php     # Additional edge case tests
+├── UpdateManagerTest.php # Update system, ZIP validation, rollback tests
+└── PluginThemeTest.php   # Plugin and theme enable/disable, install, hooks, CSS loading tests
 ```
 
 ## Harness API (`tests/harness.php`)
@@ -301,6 +319,44 @@ function test_permissions(): Test
 }
 ```
 
+### Functional Handler Tests
+
+Test handlers directly by setting up the database state and calling the handler function. This tests the actual authorization logic, not just static code analysis:
+
+```php
+function test_download_hidden_thread_guest_forbidden(): Test
+{
+    $t = new Test('Download: guest cannot download from hidden thread');
+    $pdo = setupDB();  // Creates in-memory SQLite with schema
+    $authz = new AuthZ($pdo);
+    App::reset();
+    App::getInstance()->authz = $authz;
+    App::getInstance()->pdo = $pdo;
+    $_SESSION = [];  // Guest user
+
+    // Create hidden thread and associated upload
+    $stmt = $pdo->prepare("INSERT INTO threads (id, category_id, user_id, title, status) VALUES (1, 1, 1, 'Hidden', 'hidden')");
+    $stmt->execute();
+    $stmt = $pdo->prepare("INSERT INTO uploads (id, thread_id, user_id, filename, original_name, size, mime_type) VALUES (100, 1, 1, 'file.txt', 'file.txt', 100, 'text/plain')");
+    $stmt->execute();
+
+    $threw = false;
+    try {
+        handle_download(['id' => 100]);
+    } catch (\Bulletin\ForbiddenException $e) {
+        $threw = true;
+    }
+    $t->assertTrue('Guest blocked from hidden thread download', $threw);
+
+    App::reset();
+    return $t;
+}
+```
+
+**Note:** For "allowed" cases, the handler calls `exit` after serving the file. To avoid this, either:
+- Don't create the physical file (handler throws `NotFoundException` after passing access control — this verifies the access check passed)
+- Clean up any residual files with `@unlink()` before the test
+
 ## Test Coverage
 
 | File | Component | Tests | What's Tested |
@@ -320,7 +376,17 @@ function test_permissions(): Test
 | `ModerationHandlerTest.php` | Moderation handlers | 7 | Handler integration: approve, delete, CSRF, authz, frontend lock |
 | `DatabaseMatrixTest.php` | Cross-database | 21 | Schema, CRUD, transactions, unicode, migrations, AuthZ on SQLite/MySQL/MariaDB |
 | `PluginRouterTest.php` | Plugin routing | 4 | Plugin route/middleware registration, `$_GET` population |
-| **Total** | | **469** | |
+| `RegistrationTest.php` | Registration & Login | 52 | Registration (success, duplicate, empty, weak password), login (correct, wrong, banned, suspended, unverified), logout, session, enumeration, rate limiting |
+| `InstallerTest.php` | Installer | 34 | Fresh install, admin creation, idempotency, username/password/email validation, SQLite support, config format, rollback |
+| `SecurityHardeningTest.php` | Security Hardening | 41 | SQL injection (login, search, filters), upload (whitelist, size, random name, MIME, double extension, null byte), security headers (CSP, X-Frame-Options, nosniff), CSP nonce |
+| `ContentCrudTest.php` | Content CRUD | 41 | Thread creation (with/without title), replies, pagination, order, category listing, user profile, search, sort options, hide/unhide post, edit reply post, delete reply (thread preserved), delete last reply (thread preserved) |
+| `E2eIntegrationTest.php` | E2E Flows | 37 | Register→Login→Thread→Reply flow, moderator hides thread, admin bans user, admin manages settings, moderator approves pending, guest restrictions, user cannot access admin |
+| `DatabaseIntegrityTest.php` | Database Integrity | 18 | Foreign key cascade (user, thread), SET NULL category, unique constraints (username, category), reply count, views count, soft-delete, hard-delete, NOT NULL constraints, valid category |
+| `SuggestedTest.php` | Edge Cases | 35 | Duplicate email, CSRF replay, thread merge ownership, category allowed_roles, thread watcher notifications, private messages, malicious search, pagination edge cases, username case sensitivity, registration race condition |
+| `UpdateManagerTest.php` | Updater | 28 | Zip Slip traversal, absolute path, valid ZIP, missing VERSION/index.php, nested GitHub directory, invalid ZIP, version tracking, update check, preflight PHP version, backup/restore, zip_entries_safe |
+| `SecurityFixesTest.php` | Security fixes | 35 | Eval removal, TLS enforcement, attachment authorization (functional download tests: guest/moderator/user on hidden/pending/visible threads, orphan uploads, post_id association), trusted proxies (IPv4/IPv6/CIDR), password policy, CSRF |
+| `PluginThemeTest.php` | Plugins & Themes | 40 | Enable/disable plugin, missing declared file, extra undeclared file, missing dependency, dependency cycle, safe install failure, uninstall, theme activate, CSS loading, theme install from ZIP, theme delete, default theme protection, plugin settings, version constraint, disable cascades to dependents |
+| **Total** | | **832** | |
 
 ## Database Matrix
 

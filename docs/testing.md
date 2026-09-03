@@ -31,6 +31,8 @@ php tests/run.php DatabaseIntegrity
 php tests/run.php Suggested
 php tests/run.php UpdateManager
 php tests/run.php PluginTheme
+php tests/run.php Upgrade
+php tests/run.php UpdateFailureMode
 
 # Verbose output
 php tests/run.php --verbose

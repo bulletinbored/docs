@@ -25,10 +25,8 @@ Folder-based plugins use `manifest.json` with the following schema:
     "version": "1.2.0",
     "author": "mlzog",
     "description": "WYSIWYG Markdown editor",
-    "requires": {
-        "core": ">=0.6",
-        "php": ">=8.1"
-    },
+    "core": ">=0.6",
+    "php": ">=8.1",
     "dependencies": {
         "other-plugin": ">=1.0.0"
     },
@@ -53,15 +51,16 @@ Folder-based plugins use `manifest.json` with the following schema:
 | `version` | Yes | Semver version string |
 | `author` | No | Author name |
 | `description` | No | Short description |
-| `requires` | No | Object with `core` and/or `php` version constraints |
-| `dependencies` | No | Object mapping plugin IDs to version constraints (e.g., `{"other-plugin": ">=1.0.0"}`) |
+| `core` | No | Version constraint on the bulletinbored core (e.g. `">=0.6 <1.0.0"`) |
+| `php` | No | PHP version constraint (e.g. `">=8.1"`) |
+| `dependencies` | No | Object mapping plugin IDs to semver constraints. Supports `>=`, `<=`, `>`, `<`, `==`, `!=` (e.g. `{"other-plugin": ">=1.0.0 <2.0.0"}`) |
 | `permissions` | No | Array of permission strings the plugin needs |
 | `routes` | No | Array of custom route definitions |
 | `events` | No | Array of event subscriptions (documentation only) |
 | `bootstrap` | No | Bootstrap filename (defaults to `<id>.php`) |
-| `files` | No | Array of files for integrity verification |
+| `files` | No | Array of files for integrity verification. When `plugin_verify_files` is enabled, files present but undeclared are rejected, and files declared but missing are rejected. |
 
-The manifest is validated at install time. Plugins with incompatible core/PHP versions or unmet dependencies are rejected.
+The manifest is validated at install time. Plugins with incompatible core/PHP versions, unmet dependencies, or manifest schema errors are rejected. Install and update run the same validation pipeline.
 
 ### Legacy format (file-based plugins)
 
@@ -279,23 +278,66 @@ The installer automatically detects a single top-level folder and flattens it.
 
 ## Managing Plugins
 
-- **Enable / Disable**: toggle plugin state without deleting files. Enabling checks dependencies; disabling cascades to dependent plugins.
-- **Uninstall**: disables the plugin, removes its files, and clears metadata from `data/plugins.json`.
-- **Install**: upload a ZIP to add the plugin.
-- **Update**: the Update Manager can apply new versions as ZIP packages.
+- **Install**: upload a ZIP to add the plugin. Install and update go through the same `PackageInstaller` pipeline, so the same security checks apply to both.
+- **Update**: the Update Manager can apply new versions as ZIP packages. The old folder is moved aside as a backup, the new ZIP is extracted and verified, and the backup is removed only on success. On any failure, the backup is restored and the original is left untouched.
+- **Enable / Disable**: `enable()` checks dependencies before activating. `disable()` cascades transitively to all plugins that depend on the disabled one (each is marked with `auto_disabled_by`).
+- **Auto-cascade is one-way**: if `A → B → C` and you disable `C`, both `A` and `B` are auto-disabled. Re-enabling `C` does **not** automatically re-enable `A` or `B`. Use `enableWithDeps($name)` to walk the dependency chain back up — each plugin is enabled only if its own dependencies are satisfied.
+- **Uninstall**: disables the plugin, runs the uninstall lifecycle (see below), removes the installed folder, and clears metadata from `data/plugins.json` and `data/installed.json`.
 - **Recovery**: if a plugin fails to load at boot, it is automatically disabled. Use `getFailedPlugins()` to list them and `recoverPlugin()` to disable them manually.
 
-### Plugin Lifecycle
+## Plugin Lifecycle
 
 ```
 discovered → installed → enabled → disabled → enabled
-                  ↓           ↓
-              incompatible   failed → disabled
-                  ↓
-              uninstall
+                ↓           ↓
+            incompatible   failed → disabled
+                ↓
+            uninstall
 ```
 
 A plugin failure never prevents the forum from booting — the failure is isolated and the plugin is disabled automatically.
+
+### Lifecycle events
+
+The core fires these events around install, update, enable, disable, and uninstall:
+
+| Event | Arguments | When |
+|---|---|---|
+| `plugin_installed` | `$key`, `$manifest` | After a successful install |
+| `plugin_updating` | `$key`, `$entry` | Before an update starts (existing manifest passed) |
+| `plugin_updated` | `$key`, `$manifest` | After a successful update |
+| `plugin_enabled` | `$key` | After `enable()` succeeds |
+| `plugin_disabled` | `$key` | After `disable()` succeeds (cascade target is `$key`) |
+| `plugin_auto_disabled` | `$dependentKey`, `$causeKey` | When a plugin is auto-disabled by cascade |
+| `plugin_uninstalling` | `$key`, `$entry` | Before uninstall starts |
+| `plugin_uninstalled` | `$key` | After uninstall completes |
+| `plugin_load_failed` | `$key`, `\Throwable` | When `<key>_init()` throws |
+
+### Lifecycle functions
+
+Plugins can opt in to install-time, update-time, and uninstall-time work by defining these functions in their bootstrap file. They are called inside a `try/catch`, so a failure is logged but does not block the operation.
+
+| Function | When |
+|---|---|
+| `<key>_on_install()` | After a successful install (DB tables, default options, ...) |
+| `<key>_on_update()` | After a successful update (migrations, data backfill, ...) |
+| `<key>_on_uninstall()` | After the plugin has been disabled, before its files are deleted |
+| `<key>_cleanup()` | Runs after files are removed (drop temp tables, clear caches) |
+| `<key>_migration_rollback()` | Runs after `cleanup()` (revert DB migrations introduced by the plugin) |
+
+Example: define `on_uninstall` to drop plugin-specific tables.
+
+```php
+function myplugin_on_uninstall() {
+    global $pdo;
+    $pdo->exec("DROP TABLE IF EXISTS myplugin_items");
+}
+
+function myplugin_migration_rollback() {
+    global $pdo;
+    $pdo->exec("DELETE FROM schema_version WHERE plugin = 'myplugin'");
+}
+```
 
 ```
 plugins/
@@ -392,14 +434,15 @@ $pluginManager->getByName('myplugin');
 
 // State
 $pluginManager->isEnabled('myplugin');
-$pluginManager->enable('myplugin');   // Checks dependencies before enabling
-$pluginManager->disable('myplugin');  // Cascades to dependent plugins
-$pluginManager->getPluginState('myplugin');  // enabled, disabled, incompatible, corrupted, failed, not_found
+$pluginManager->enable('myplugin');           // Checks dependencies before enabling. No cascade UP.
+$pluginManager->disable('myplugin');          // Cascades transitively to all dependents
+$pluginManager->enableWithDeps('myplugin');   // Walk dependency chain UP. Each plugin enabled only if its own deps are satisfied.
+$pluginManager->getPluginState('myplugin');   // enabled, disabled, incompatible, corrupted, failed, not_found
 
 // Dependencies
-$pluginManager->checkDependencies('myplugin');  // ['compatible' => bool, 'reason' => '...']
+$pluginManager->checkDependencies('myplugin');  // ['compatible' => bool, 'reason' => '...'] — applies full semver
 $pluginManager->detectCycle('myplugin');        // Returns cycle path or null
-$pluginManager->getDependents('myplugin');      // Plugins that depend on this one
+$pluginManager->getDependents('myplugin');      // Plugins that transitively depend on this one (memoized)
 
 // Settings
 $pluginManager->getSetting('myplugin', 'key', $default);
@@ -415,7 +458,10 @@ $pluginManager->loadTranslations($lang);
 // Lifecycle
 $pluginManager->loadEnabled();
 $pluginManager->installFromRepo('https://github.com/user/repo', 'v1.0.0');
-$pluginManager->uninstall('myplugin');  // disable → remove files → remove metadata
+$pluginManager->installFromZip('/path/to/plugin.zip');                  // Fresh install via ZIP. Detects name from manifest.
+$pluginManager->installFromZip('/path/to/v2.zip', 'myplugin', true);     // Update in place (replaces existing folder)
+$pluginManager->updateFromZip('myplugin', '/path/to/v2.zip');           // Convenience wrapper for update
+$pluginManager->uninstall('myplugin');  // disable → on_uninstall → remove files → cleanup → migration_rollback
 $pluginManager->recoverPlugin('myplugin');  // Disable a failed plugin
 
 // Failure recovery

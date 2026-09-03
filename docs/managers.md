@@ -129,6 +129,10 @@ $pluginManager->addHook('post_after_create', $callback, 15); // runs later
 
 **Users:** `user_registered`
 
+**Plugin lifecycle:** `plugin_installed`, `plugin_updating`, `plugin_updated`, `plugin_enabled`, `plugin_disabled`, `plugin_auto_disabled`, `plugin_uninstalling`, `plugin_uninstalled`, `plugin_load_failed`
+
+See [Plugin Development](plugins.md#lifecycle-events) for argument signatures and ordering.
+
 ## Theme Manager (`admin_themes`)
 
 The Theme Manager discovers all themes in `themes/`, tracks the active theme, and provides CSS URLs/paths.
@@ -270,12 +274,14 @@ If `update_server` is not a GitHub URL, the Update Manager falls back to fetchin
 
 - **`plugin` / `theme`** — Uses atomic rename in the extension's directory (`plugins/{name}` or `themes/{name}`):
   1. Runs preflight checks (disk space, writability)
-  2. Extracts the ZIP to a temporary directory inside the extension folder
+  2. Extracts the ZIP to a temporary directory inside the extension folder via `PackageInstaller`
   3. Renames the existing extension directory to `_old_{name}_{uniqid}` (if present)
   4. Atomically renames the extracted source to the target directory
   5. On failure, rolls back by restoring the old directory
   6. Validates the target directory is not empty
   7. Detects version from `manifest.json` or PHP file header
   8. Syncs version metadata into the package
+
+  The same `PackageInstaller` pipeline is used by `PluginManager::installFromZip` and `PluginManager::updateFromZip`, so all manifest validation, core/PHP constraint checks, and file-integrity verification apply identically to fresh installs and updates. The `verifyConfigKey` passed in matches the per-type admin toggle (`plugin_verify_files` / `theme_verify_files`).
 
 - **`core`** — Extracts into the forum root (legacy behavior for manual core ZIP uploads)

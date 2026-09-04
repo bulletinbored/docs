@@ -33,9 +33,16 @@ php tests/run.php UpdateManager
 php tests/run.php PluginTheme
 php tests/run.php Upgrade
 php tests/run.php UpdateFailureMode
+php tests/run.php EmailSecurity
+php tests/run.php EndpointAuthorization
+php tests/run.php SessionSecurity
+php tests/run.php UploadSecurity
 
 # Verbose output
 php tests/run.php --verbose
+
+# List all registered tests
+php tests/run.php --list
 ```
 
 ## Test Structure
@@ -50,13 +57,13 @@ tests/
 ├── AuthTest.php          # Auth, permissions, CSRF, AuthZ tests
 ├── MigratorTest.php      # Migration engine tests
 ├── SecurityTest.php      # CSRF rotation, Request, audit log, trusted proxies tests
-├── ResponseTest.php      # Response object + typed Request tests
-├── MarkdownTest.php      # Markdown security tests (XSS, URL schemes)
+├── ResponseTest.php       # Response object + typed Request tests
+├── MarkdownTest.php       # Markdown security tests (XSS, URL schemes)
 ├── PluginRouterTest.php  # Plugin route/middleware registration tests
-├── UpgradeTest.php       # Upgrade pipeline tests (old schema → current)
+├── UpgradeTest.php        # Upgrade pipeline tests (old schema → current)
 ├── AuthHardeningTest.php # Auth hardening tests (session, tokens, enumeration)
 ├── ContentHardeningTest.php # Content hardening tests (markdown, uploads, manifests)
-├── RendererTest.php      # Template engine tests (escaping, partials, globals)
+├── RendererTest.php       # Template engine tests (escaping, partials, globals)
 ├── ModerationTest.php    # Moderation actions tests (lock, sticky, delete, split, merge)
 ├── ModerationHandlerTest.php # Moderation handler integration tests
 ├── DatabaseMatrixTest.php # Cross-database compatibility tests (SQLite, MySQL, MariaDB)
@@ -71,7 +78,11 @@ tests/
 ├── DatabaseIntegrityTest.php # Foreign keys, constraints, counters, soft-delete tests
 ├── SuggestedTest.php     # Additional edge case tests
 ├── UpdateManagerTest.php # Update system, ZIP validation, rollback tests
-└── PluginThemeTest.php   # Plugin and theme enable/disable, install, hooks, CSS loading tests
+├── PluginThemeTest.php   # Plugin and theme enable/disable, install, hooks, CSS loading tests
+├── EndpointAuthorizationTest.php # HTTP endpoint authorization matrix
+├── EmailSecurityTest.php # SMTP injection and email validation tests
+├── SessionSecurityTest.php # Session invalidation tests
+└── UploadSecurityTest.php # Upload security and direct access prevention
 ```
 
 ## Harness API (`tests/harness.php`)
@@ -97,6 +108,13 @@ $t->assertCount('description', $expectedCount, $array);
 $t->assertContains('description', $needle, $array);
 $t->assertInstanceOf('description', 'ClassName', $object);
 
+// Exception assertions
+$t->assertThrows('description', function() { throw new Exception('test'); });
+$t->assertNotThrows('description', function() { /* no exception */ });
+
+// Custom predicate
+$t->assertThat('description', function($v) { return $v > 0; }, $value);
+
 // Run and print results
 $t->run();
 ```
@@ -116,7 +134,7 @@ $suite->run();  // exits with code 1 if any test failed
 
 ### Pattern
 
-Each test file defines functions that return a `Test` object:
+Each test file defines functions that return a `Test` object and registers them with `register_tests()`:
 
 ```php
 <?php
@@ -124,6 +142,7 @@ Each test file defines functions that return a `Test` object:
  * Feature tests — tests for a specific component.
  */
 
+require_once __DIR__ . '/harness.php';
 require_once __DIR__ . '/../lib/YourClass.php';
 
 function test_feature_behavior(): Test
@@ -153,12 +172,11 @@ function test_feature_edge_case(): Test
     return $t;
 }
 
-// Run all tests in this file
-$suite = new TestSuite();
-$suite->addTest(test_feature_behavior());
-$suite->addTest(test_feature_edge_case());
-$suite->run();
+// Register tests for the runner
+register_tests('test_feature_behavior', 'test_feature_edge_case');
 ```
+
+The runner (`tests/run.php`) loads all test files and executes registered tests together. No `exit()` call needed — the runner handles exit codes.
 
 ### Database Tests
 
@@ -388,7 +406,50 @@ function test_download_hidden_thread_guest_forbidden(): Test
 | `UpdateManagerTest.php` | Updater | 28 | Zip Slip traversal, absolute path, valid ZIP, missing VERSION/index.php, nested GitHub directory, invalid ZIP, version tracking, update check, preflight PHP version, backup/restore, zip_entries_safe |
 | `SecurityFixesTest.php` | Security fixes | 35 | Eval removal, TLS enforcement, attachment authorization (functional download tests: guest/moderator/user on hidden/pending/visible threads, orphan uploads, post_id association), trusted proxies (IPv4/IPv6/CIDR), password policy, CSRF |
 | `PluginThemeTest.php` | Plugins & Themes | 40 | Enable/disable plugin, missing declared file, extra undeclared file, missing dependency, dependency cycle, safe install failure, uninstall, theme activate, CSS loading, theme install from ZIP, theme delete, default theme protection, plugin settings, version constraint, disable cascades to dependents |
-| **Total** | | **832** | |
+| **Total** | | **900+** | |
+
+## New Test Files
+
+### EmailSecurityTest.php
+
+Tests for SMTP injection prevention and email validation:
+
+- CRLF rejection in email headers
+- Control character rejection
+- Header injection prevention
+- Email normalization and IDNA validation
+- Token URL newline prevention
+
+### EndpointAuthorizationTest.php
+
+HTTP endpoint authorization matrix covering:
+
+- Reply to hidden/pending/locked threads
+- Download attachments from hidden threads
+- Watch hidden threads
+- Notification access
+- Private message access
+- Edit/delete others' posts
+- Banned/suspended user restrictions
+
+### SessionSecurityTest.php
+
+Session invalidation tests:
+
+- Session invalidation after password reset
+- Session version verification in `is_logged_in()`
+- Concurrent session handling
+
+### UploadSecurityTest.php
+
+Upload security and direct access prevention:
+
+- Private directory existence and `.htaccess` protection
+- MIME type and extension validation
+- Safe filename generation
+- PHP/SVG polyglot rejection
+- Thread status checks for downloads
+- Orphan attachment handling
 
 ## Database Matrix
 
@@ -435,9 +496,9 @@ php tests/run.php && echo "OK" || echo "FAILED"
 ## Adding New Tests
 
 1. Create `tests/YourFeatureTest.php`
-2. Require the class under test
+2. `require_once __DIR__ . '/harness.php';`
 3. Define test functions returning `Test` objects
-4. Add them to a `TestSuite` at the bottom
+4. Call `register_tests('test_foo', 'test_bar')` at the bottom
 5. Run with `php tests/run.php YourFeature`
 
 No configuration, no bootstrap, no dependencies.

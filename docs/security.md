@@ -157,7 +157,37 @@ Logged actions include: user create/update/delete/ban/unban/suspend, role create
 - **Token security**: Email verification and password reset tokens are stored as SHA-256 hashes (never raw). Tokens expire after 24 hours (email) or 1 hour (reset) and are single-use.
 - **Account enumeration prevention**: Login errors are generic ("Invalid credentials") — they don't reveal whether the username exists.
 - **CSRF protection**: Tokens rotate on every successful validation via `csrf_validate_request()`. Use `csrf_validate_request()` in all POST handlers.
-- **Rate limiting**: Login (5/15min), register (5/hr), forgot-password (5/hr), reset-password (10/hr) are rate-limited per client IP.
+- **Rate limiting**: Login (5/15min), register (5/hr), forgot-password (5/hr), reset-password (10/hr) are rate-limited per client IP. Auth actions fail-closed (denied) when rate limit is exceeded.
+
+## New Security Fixes
+
+### Attachment Access Control
+
+Attachments in hidden/pending threads are now protected:
+- Files stored in `uploads/private/` instead of `uploads/`
+- Download endpoint `/download/{id}` checks `can_view_thread()` before serving
+- `.htaccess` in `uploads/private/` denies all direct access (Apache)
+- `nginx.conf` uses `location ^~ /uploads/private/ { deny all; }` (Nginx)
+- Orphan uploads (no thread association) require authentication
+
+### SMTP Injection Prevention
+
+`send_email()` validates email addresses with `FILTER_VALIDATE_EMAIL` and rejects any headers containing `\r` or `\n` (CRLF injection prevention).
+
+### Session Invalidation on Password Change
+
+- `session_version` column added to users table
+- `is_logged_in()` verifies session version matches
+- Password reset increments version, invalidating old sessions
+- **Legacy sessions** (created before migration) are also invalidated for security
+
+### Host Header URL Generation
+
+Absolute URLs now use configured `base_url` instead of `$_SERVER['HTTP_HOST']`, preventing host header injection via spoofed headers.
+
+### PluginManager Hook Fix
+
+Hook callbacks now use `return false` instead of `continue`, ensuring hooks don't accidentally skip subsequent handlers.
 
 ## Content Hardening
 

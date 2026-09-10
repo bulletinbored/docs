@@ -181,6 +181,10 @@ Attachments in hidden/pending threads are now protected:
 - Password reset increments version, invalidating old sessions
 - **Legacy sessions** (created before migration) are also invalidated for security
 
+### Watch/Unwatch Hidden Thread Protection
+
+`handle_watch()` and `handle_unwatch()` now validate thread visibility before performing watch/unwatch operations. Users cannot watch or unwatch hidden/pending threads they cannot view, preventing information leakage about thread existence.
+
 ### Host Header URL Generation
 
 Absolute URLs now use configured `base_url` instead of `$_SERVER['HTTP_HOST']`, preventing host header injection via spoofed headers.

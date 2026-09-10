@@ -49,41 +49,62 @@ php tests/run.php --list
 
 ```
 tests/
-├── harness.php           # Test + TestSuite classes (the engine)
-├── run.php               # CLI runner
-├── DbQueryTest.php       # DbQuery (query builder) tests
-├── E2eFlowTest.php       # End-to-end flow tests (thread lifecycle, JSON API, plugins)
-├── PluginManagerTest.php # Hook system + manifest validation tests
-├── AuthTest.php          # Auth, permissions, CSRF, AuthZ tests
-├── MigratorTest.php      # Migration engine tests
-├── SecurityTest.php      # CSRF rotation, Request, audit log, trusted proxies tests
-├── ResponseTest.php       # Response object + typed Request tests
-├── MarkdownTest.php       # Markdown security tests (XSS, URL schemes)
-├── PluginRouterTest.php  # Plugin route/middleware registration tests
-├── UpgradeTest.php        # Upgrade pipeline tests (old schema → current)
-├── AuthHardeningTest.php # Auth hardening tests (session, tokens, enumeration)
-├── ContentHardeningTest.php # Content hardening tests (markdown, uploads, manifests)
-├── RendererTest.php       # Template engine tests (escaping, partials, globals)
-├── ModerationTest.php    # Moderation actions tests (lock, sticky, delete, split, merge)
-├── ModerationHandlerTest.php # Moderation handler integration tests
-├── DatabaseMatrixTest.php # Cross-database compatibility tests (SQLite, MySQL, MariaDB)
-├── SecurityFixesTest.php # Security fixes tests (eval removal, TLS, attachment auth, trusted proxies)
-├── HelpersTest.php       # Helper module tests (Text, Avatar, Data, AuthHelpers)
-├── PluginRouterTest.php  # Plugin route/middleware registration tests
-├── RegistrationTest.php  # User registration, login, validation, ban enforcement tests
-├── InstallerTest.php     # Installation process tests
-├── SecurityHardeningTest.php # SQL injection, upload security, security headers tests
-├── ContentCrudTest.php   # Thread creation, replies, viewing, pagination tests
-├── E2eIntegrationTest.php # End-to-end flow tests (user journeys)
-├── DatabaseIntegrityTest.php # Foreign keys, constraints, counters, soft-delete tests
-├── SuggestedTest.php     # Additional edge case tests
-├── UpdateManagerTest.php # Update system, ZIP validation, rollback tests
-├── PluginThemeTest.php   # Plugin and theme enable/disable, install, hooks, CSS loading tests
+├── harness.php                 # Test + TestSuite classes (the engine)
+├── run.php                     # CLI runner
+├── DbQueryTest.php             # Query builder tests
+├── E2eFlowTest.php             # End-to-end flow tests
+├── PluginManagerTest.php       # Hook system tests
+├── AuthTest.php                # Auth, permissions, CSRF, AuthZ tests
+├── MigratorTest.php            # Migration engine tests
+├── SecurityTest.php            # CSRF rotation, Request, audit log, trusted proxies
+├── ResponseTest.php             # Response object + typed Request tests
+├── MarkdownTest.php             # Markdown security tests
+├── PluginRouterTest.php         # Plugin route/middleware registration
+├── UpgradeTest.php              # Upgrade pipeline tests
+├── AuthHardeningTest.php        # Auth hardening tests
+├── ContentHardeningTest.php     # Content hardening tests
+├── RendererTest.php             # Template engine tests
+├── ModerationTest.php           # Moderation actions tests
+├── ModerationHandlerTest.php    # Moderation handler integration tests
+├── DatabaseMatrixTest.php       # Cross-database compatibility tests
+├── SecurityFixesTest.php        # Security fixes tests
+├── HelpersTest.php              # Helper module tests
+├── RegistrationTest.php         # Registration & login tests
+├── InstallerTest.php            # Installation process tests
+├── SecurityHardeningTest.php    # SQL injection, upload security, security headers
+├── ContentCrudTest.php          # Thread creation, replies, viewing, pagination
+├── E2eIntegrationTest.php       # End-to-end flow tests (user journeys)
+├── DatabaseIntegrityTest.php    # Foreign keys, constraints, counters, soft-delete
+├── SuggestedTest.php            # Edge case tests
+├── UpdateManagerTest.php        # Update system, ZIP validation, rollback
+├── PluginThemeTest.php          # Plugin and theme tests
 ├── EndpointAuthorizationTest.php # HTTP endpoint authorization matrix
-├── EmailSecurityTest.php # SMTP injection and email validation tests
-├── SessionSecurityTest.php # Session invalidation tests
-└── UploadSecurityTest.php # Upload security and direct access prevention
+├── EmailSecurityTest.php        # SMTP injection and email validation
+├── SessionSecurityTest.php      # Session invalidation tests
+└── UploadSecurityTest.php       # Upload security tests
 ```
+
+## How Tests Are Registered
+
+Most test files define functions named `test_*()` that return a `Test` object, then register them at the bottom:
+
+```php
+register_tests('test_foo', 'test_bar', 'test_baz');
+```
+
+The runner (`tests/run.php`) loads all `*Test.php` files, collects the registered tests, and executes them. Test files should not call `run()` or `exit()` — the runner handles that.
+
+### Special case: DatabaseMatrixTest.php
+
+`DatabaseMatrixTest.php` does not use `register_tests()`. Instead it calls `register_database_matrix_tests()` at the bottom, which adds tests directly to the suite via `$suite->addTest()`. This is because the same test functions are executed multiple times, once per database driver (SQLite, optionally MySQL/MariaDB).
+
+### Helper functions
+
+Some test files define helper functions that are not registered as tests. These are named without the `test_` prefix to avoid confusion:
+
+- `setup_schema_endpoint()`, `create_user_endpoint()`, `create_post_endpoint()` in `EndpointAuthorizationTest.php`
+- `setup_schema_upload()`, `create_user_upload()`, `create_category_upload()`, `create_thread_upload()`, `create_upload_sec()`, `can_access_upload()` in `UploadSecurityTest.php`
+- `setup_schema_session()`, `create_user_session()` in `SessionSecurityTest.php`
 
 ## Harness API (`tests/harness.php`)
 
@@ -187,7 +208,7 @@ function test_dbquery_insert(): Test
 {
     $t = new Test('DbQuery - Insert');
 
-    $pdo = new BbPdo('sqlite::memory:');
+    $pdo = new PDO('sqlite::memory:');
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $db = new DbQuery($pdo);
 
@@ -377,79 +398,46 @@ function test_download_hidden_thread_guest_forbidden(): Test
 - Don't create the physical file (handler throws `NotFoundException` after passing access control — this verifies the access check passed)
 - Clean up any residual files with `@unlink()` before the test
 
-## Test Coverage
+## Test Count
 
-| File | Component | Tests | What's Tested |
-|---|---|---|---|
-| `DbQueryTest.php` | Query builder | 40 | Insert, select, where, update, delete, order, limit, offset, count, exists, paginate, insertIgnore, pluck, raw queries |
-| `E2eFlowTest.php` | End-to-end flows | 21 | Thread lifecycle, JSON API responses, plugin routes, plugin migrations, current_route_action() helper |
-| `PluginManagerTest.php` | Hook system | 29 | Actions, filters, checks, priority, removal, deleteDir, manifest validation |
-| `AuthTest.php` | Authentication | 58 | Password hashing, CSRF, permissions, session state, ban/suspension, input validation, AuthZ service |
-| `MigratorTest.php` | Migration engine | 27 | Table creation, up/down, batch tracking, pending detection, class loading |
-| `SecurityTest.php` | Security | 31 | CSRF rotation, Request sanitization, audit log, trusted proxies, rate limiter |
-| `ResponseTest.php` | Response + Request | 26 | Response object (html/json/redirect/error), typed Request accessors |
-| `UpgradeTest.php` | Upgrade pipeline | 15 | 0.5.x → current upgrade, namespaced IDs, irreversible migrations, failure atomicity |
-| `AuthHardeningTest.php` | Auth hardening | 28 | Session lifecycle, token security, CSRF rotation, rate limiting, account enumeration |
-| `ContentHardeningTest.php` | Content hardening | 26 | Markdown fuzzing, upload validation, plugin manifests, request parsing |
-| `RendererTest.php` | Template engine | 9 | Escaping, variable passing, global variables, data override |
-| `ModerationTest.php` | Moderation actions | 19 | Approve, lock/unlock, sticky/unsticky, hide, delete, move, copy, split, merge, CSRF, authorization |
-| `ModerationHandlerTest.php` | Moderation handlers | 7 | Handler integration: approve, delete, CSRF, authz, frontend lock |
-| `DatabaseMatrixTest.php` | Cross-database | 21 | Schema, CRUD, transactions, unicode, migrations, AuthZ on SQLite/MySQL/MariaDB |
-| `PluginRouterTest.php` | Plugin routing | 4 | Plugin route/middleware registration, `$_GET` population |
-| `RegistrationTest.php` | Registration & Login | 52 | Registration (success, duplicate, empty, weak password), login (correct, wrong, banned, suspended, unverified), logout, session, enumeration, rate limiting |
-| `InstallerTest.php` | Installer | 34 | Fresh install, admin creation, idempotency, username/password/email validation, SQLite support, config format, rollback |
-| `SecurityHardeningTest.php` | Security Hardening | 41 | SQL injection (login, search, filters), upload (whitelist, size, random name, MIME, double extension, null byte), security headers (CSP, X-Frame-Options, nosniff), CSP nonce |
-| `ContentCrudTest.php` | Content CRUD | 41 | Thread creation (with/without title), replies, pagination, order, category listing, user profile, search, sort options, hide/unhide post, edit reply post, delete reply (thread preserved), delete last reply (thread preserved) |
-| `E2eIntegrationTest.php` | E2E Flows | 37 | Register→Login→Thread→Reply flow, moderator hides thread, admin bans user, admin manages settings, moderator approves pending, guest restrictions, user cannot access admin |
-| `DatabaseIntegrityTest.php` | Database Integrity | 18 | Foreign key cascade (user, thread), SET NULL category, unique constraints (username, category), reply count, views count, soft-delete, hard-delete, NOT NULL constraints, valid category |
-| `SuggestedTest.php` | Edge Cases | 35 | Duplicate email, CSRF replay, thread merge ownership, category allowed_roles, thread watcher notifications, private messages, malicious search, pagination edge cases, username case sensitivity, registration race condition |
-| `UpdateManagerTest.php` | Updater | 28 | Zip Slip traversal, absolute path, valid ZIP, missing VERSION/index.php, nested GitHub directory, invalid ZIP, version tracking, update check, preflight PHP version, backup/restore, zip_entries_safe |
-| `SecurityFixesTest.php` | Security fixes | 35 | Eval removal, TLS enforcement, attachment authorization (functional download tests: guest/moderator/user on hidden/pending/visible threads, orphan uploads, post_id association), trusted proxies (IPv4/IPv6/CIDR), password policy, CSRF |
-| `PluginThemeTest.php` | Plugins & Themes | 40 | Enable/disable plugin, missing declared file, extra undeclared file, missing dependency, dependency cycle, safe install failure, uninstall, theme activate, CSS loading, theme install from ZIP, theme delete, default theme protection, plugin settings, version constraint, disable cascades to dependents |
-| **Total** | | **900+** | |
+The suite contains test cases across the following files. The exact count depends on whether `DatabaseMatrixTest.php` runs once (SQLite only) or twice (SQLite + MySQL/MariaDB).
 
-## New Test Files
+| File | Registered Tests | Notes |
+|---|---|---|
+| `DbQueryTest.php` | 9 | Query builder |
+| `E2eFlowTest.php` | 5 | End-to-end flows |
+| `PluginManagerTest.php` | 7 | Hook system |
+| `AuthTest.php` | 7 | Auth, permissions, CSRF |
+| `MigratorTest.php` | 7 | Migration engine |
+| `SecurityTest.php` | 7 | CSRF rotation, Request, audit log |
+| `ResponseTest.php` | 9 | Response object + Request |
+| `UpgradeTest.php` | 4 | Upgrade pipeline |
+| `AuthHardeningTest.php` | 7 | Auth hardening |
+| `ContentHardeningTest.php` | 9 | Content hardening |
+| `RendererTest.php` | 4 | Template engine |
+| `ModerationTest.php` | 11 | Moderation actions |
+| `ModerationHandlerTest.php` | 6 | Moderation handler integration |
+| `DatabaseMatrixTest.php` | 6 | Cross-database (SQLite) |
+| `PluginRouterTest.php` | 4 | Plugin routing |
+| `RegistrationTest.php` | 15 | Registration & login |
+| `InstallerTest.php` | 11 | Installer |
+| `SecurityHardeningTest.php` | 14 | Security hardening |
+| `ContentCrudTest.php` | 14 | Content CRUD |
+| `E2eIntegrationTest.php` | 7 | E2E flows |
+| `DatabaseIntegrityTest.php` | 11 | Database integrity |
+| `SuggestedTest.php` | 10 | Edge cases |
+| `UpdateManagerTest.php` | 13 | Updater |
+| `UpdateFailureModeTest.php` | 15 | Update failure modes |
+| `SecurityFixesTest.php` | 32 | Security fixes |
+| `PluginThemeTest.php` | 15 | Plugins & themes |
+| `EmailSecurityTest.php` | 14 | Email security |
+| `EndpointAuthorizationTest.php` | 14 | Endpoint authorization |
+| `SessionSecurityTest.php` | 12 | Session security |
+| `UploadSecurityTest.php` | 14 | Upload security |
+| **Total (SQLite)** | | **~330** |
+| **Total (with MySQL)** | | **~336** |
 
-### EmailSecurityTest.php
-
-Tests for SMTP injection prevention and email validation:
-
-- CRLF rejection in email headers
-- Control character rejection
-- Header injection prevention
-- Email normalization and IDNA validation
-- Token URL newline prevention
-
-### EndpointAuthorizationTest.php
-
-HTTP endpoint authorization matrix covering:
-
-- Reply to hidden/pending/locked threads
-- Download attachments from hidden threads
-- Watch hidden threads
-- Notification access
-- Private message access
-- Edit/delete others' posts
-- Banned/suspended user restrictions
-
-### SessionSecurityTest.php
-
-Session invalidation tests:
-
-- Session invalidation after password reset
-- Session version verification in `is_logged_in()`
-- Concurrent session handling
-
-### UploadSecurityTest.php
-
-Upload security and direct access prevention:
-
-- Private directory existence and `.htaccess` protection
-- MIME type and extension validation
-- Safe filename generation
-- PHP/SVG polyglot rejection
-- Thread status checks for downloads
-- Orphan attachment handling
+The counts above reflect the number of registered test cases. Some tests contain multiple assertions, so the total number of assertions is higher.
 
 ## Database Matrix
 
@@ -458,16 +446,8 @@ The `DatabaseMatrixTest.php` tests compatibility across database engines:
 | Database | Status | How to Test |
 |---|---|---|
 | SQLite | ✓ Always tested | `php tests/DatabaseMatrixTest.php` |
-| MySQL 8.0 / 8.4 | ✓ CI (GitHub Actions) | `DB_DRIVER=mysql DB_HOST=127.0.0.1 DB_NAME=test DB_USER=root DB_PASS=root php tests/DatabaseMatrixTest.php` |
-| MariaDB 10.6 / 10.11 / 11.4 | ✓ CI (GitHub Actions) | Same as MySQL (driver auto-detects) |
-
-### CI Matrix (`.github/workflows/database-matrix.yml`)
-
-```
-SQLite    ✓  PHP 8.1, 8.2, 8.3
-MySQL     ✓  8.0, 8.4  × PHP 8.1, 8.2, 8.3
-MariaDB   ✓  10.6, 10.11, 11.4  × PHP 8.1, 8.2, 8.3
-```
+| MySQL 8.0 / 8.4 | ✓ When available | `DB_DRIVER=mysql php tests/DatabaseMatrixTest.php` |
+| MariaDB 10.6 / 10.11 / 11.4 | ✓ When available | Same as MySQL (driver auto-detects) |
 
 ### Running Locally with MySQL
 
@@ -500,5 +480,3 @@ php tests/run.php && echo "OK" || echo "FAILED"
 3. Define test functions returning `Test` objects
 4. Call `register_tests('test_foo', 'test_bar')` at the bottom
 5. Run with `php tests/run.php YourFeature`
-
-No configuration, no bootstrap, no dependencies.

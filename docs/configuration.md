@@ -29,7 +29,10 @@ Edit `config.json` to customize your installation.
     "avatar_allowed_types": ["image/jpeg", "image/png", "image/gif", "image/webp"],
 
     "base_url": "",
-    "version": "0.5.0",
+    "force_https": true,
+    "cookie_secure": true,
+    "email_notifications": true,
+    "version": "0.9.0",
     "plugin_manifest": "__DIR__/data/plugins.json",
     "theme_manifest": "__DIR__/data/themes.json",
     "update_manifest": "__DIR__/data/updates.json",
@@ -40,7 +43,7 @@ Edit `config.json` to customize your installation.
 
 ## Version
 
-Do not hardcode the version; the application reads it from the `VERSION` file at the project root, e.g. `0.5.0`. See [Versioning](versioning) for how to manage releases.
+Do not hardcode the version; the application reads it from the `VERSION` file at the project root, e.g. `0.9.0`. See [Versioning](versioning) for how to manage releases.
 
 ## Database
 
@@ -72,6 +75,30 @@ The forum uses PHP's `mail()` function by default. For SMTP support, set:
 "mail_password": "secret"
 ```
 
+## Notifications
+
+Notification e-mails for replies and mentions are sent by default. Set:
+
+```json
+"email_notifications": false
+```
+
+to keep in-app notifications only (no e-mail). This does not affect
+registration/verification or password-reset e-mails.
+
+## HTTPS
+
+`force_https` (default `true`) redirects plain-HTTP requests to HTTPS. Disable
+it only on hosts without a valid certificate, or during local development:
+
+```json
+"force_https": false
+```
+
+`cookie_secure` (default `true`) marks the session cookie `Secure`; keep it on
+for HTTPS deployments. Behind a reverse proxy that terminates TLS, forward
+`X-Forwarded-Proto` (see [Installation](installation)).
+
 ## Theme
 
 Set the active theme by folder name:
@@ -91,7 +118,7 @@ Configure the default language and available languages:
 
 ## Rate Limiting (Security Hardening)
 
-Sensitive actions are throttled by a dependency-free, file-based rate limiter (`rate_limit()` in `src/helpers.php`). Each `(action, key)` bucket keeps a sliding window of timestamps in `data/ratelimit/{bucket}.json`. The default limits applied in `src/actions/` handlers are:
+Sensitive actions are throttled by a dependency-free, file-based rate limiter (`rate_limit()` in `src/Security.php`). Each `(action, key)` bucket keeps a sliding window of timestamps in `data/ratelimit/{bucket}.json`. The default limits applied in `src/actions/` handlers are:
 
 | Action | Max attempts | Window | Bucket key |
 |---|---|---|---|
@@ -101,8 +128,19 @@ Sensitive actions are throttled by a dependency-free, file-based rate limiter (`
 | `reset_password` | 10 | 3600s (1 h) | IP |
 | `new_thread` | 20 | 3600s (1 h) | user id (0 if guest) |
 | `reply` | 30 | 3600s (1 h) | user id (0 if guest) |
+| `edit_post` / `edit_thread` | 30 / 20 | 3600s (1 h) | user id |
+| `delete_post` / `delete_thread` | 20 / 10 | 3600s (1 h) | user id |
+| `watch` / `unwatch` | 30 | 3600s (1 h) | user id |
+| `upload_image` / `editbored_upload` | 20 | 3600s (1 h) | user id |
+| `edit_profile` / `remove_avatar` | 20 | 3600s (1 h) | user id |
+| Admin actions (settings, catalog, categories, languages, moderation, plugins, themes, updates, roles, users) | 10–30 | 3600s (1 h) | user id |
 
-The `data/ratelimit/` directory is created automatically. No configuration is required; the limits are hard-coded in the action handlers.
+The `data/ratelimit/` directory is created automatically. No configuration is
+required; the limits are hard-coded in the action handlers. Sensitive actions
+fail closed (denied) when the limiter cannot open the bucket, acquire its lock,
+parse it, or persist the updated hit (disk full / read-only file). Buckets older
+than 24 hours are removed opportunistically by `rate_limit_gc()` so the
+directory does not grow without bound.
 
 ## Security Hardening
 

@@ -13,7 +13,7 @@ The forum includes a basic translation system managed from the admin dashboard.
    - **Available Languages**: comma-separated list of enabled language codes
 4. Use `t('key')` in views and index.php to output translated strings
 
-The forum ships with English (`lang/en.json`) and Italian (`lang/it.json`) translations.
+The forum ships with English (`lang/en.json`). Additional languages can be added as `lang/<code>.json` and enabled in **Admin Panel → Settings → Available Languages**.
 
 ## Translation File Format
 

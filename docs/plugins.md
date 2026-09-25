@@ -329,12 +329,12 @@ Example: define `on_uninstall` to drop plugin-specific tables.
 
 ```php
 function myplugin_on_uninstall() {
-    global $pdo;
+    $pdo = App::getInstance()->pdo;
     $pdo->exec("DROP TABLE IF EXISTS myplugin_items");
 }
 
 function myplugin_migration_rollback() {
-    global $pdo;
+    $pdo = App::getInstance()->pdo;
     $pdo->exec("DELETE FROM schema_version WHERE plugin = 'myplugin'");
 }
 ```

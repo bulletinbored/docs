@@ -43,6 +43,12 @@ php tests/run.php --verbose
 
 # List all registered tests
 php tests/run.php --list
+
+# Source coverage report (line coverage with Xdebug/PCOV, otherwise loaded files)
+php tests/run.php --coverage
+
+# Enable the HTTP integration tests explicitly (auto-enabled on non-Windows)
+BB_HTTP_TESTS=1 php tests/run.php BootstrapIntegration
 ```
 
 ## Test Structure
@@ -50,7 +56,9 @@ php tests/run.php --list
 ```
 tests/
 ├── harness.php                 # Test + TestSuite classes (the engine)
-├── run.php                     # CLI runner
+├── bootstrap.php               # Test environment bootstrap (temp dirs, in-memory DB, test mode)
+├── run.php                     # CLI runner (--verbose, --list, --coverage)
+├── BootstrapIntegrationTest.php # Real-bootstrap smoke test + optional HTTP header/route checks
 ├── DbQueryTest.php             # Query builder tests
 ├── E2eFlowTest.php             # End-to-end flow tests
 ├── PluginManagerTest.php       # Hook system tests
@@ -351,10 +359,12 @@ function test_permissions(): Test
     $pdo = new PDO('sqlite::memory:');
     $pdo->exec("CREATE TABLE roles (id INTEGER PRIMARY KEY, name TEXT, permissions TEXT)");
     $pdo->exec("INSERT INTO roles VALUES (1, 'admin', '[\"admin.access\",\"users.ban\"]')");
-    $GLOBALS['pdo'] = $pdo;
+    $pdo->exec("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, role TEXT)");
+    $pdo->exec("INSERT INTO users (id, username, role) VALUES (1, 'admin', 'admin')");
 
-    $_SESSION['user_role'] = 'admin';
-    $t->assertTrue('Admin has permission', user_has_permission('users.ban'));
+    // AuthZ is the single source of truth (no globals, no user_has_permission())
+    $authz = new AuthZ($pdo);
+    $t->assertTrue('Admin has permission', $authz->can(1, 'users.ban'));
 
     return $t;
 }
@@ -434,10 +444,34 @@ The suite contains test cases across the following files. The exact count depend
 | `EndpointAuthorizationTest.php` | 14 | Endpoint authorization |
 | `SessionSecurityTest.php` | 12 | Session security |
 | `UploadSecurityTest.php` | 14 | Upload security |
-| **Total (SQLite)** | | **~330** |
-| **Total (with MySQL)** | | **~336** |
+| **Total (SQLite)** | | **~339 test functions** |
+| **Total (with MySQL)** | | **~345 test functions** |
 
-The counts above reflect the number of registered test cases. Some tests contain multiple assertions, so the total number of assertions is higher.
+The counts above reflect the number of registered test functions. Each test runs
+multiple assertions: the current suite reports **1218 assertions, 0 failures**
+with `php tests/run.php`. The exact count depends on whether
+`DatabaseMatrixTest.php` runs once (SQLite only) or again per service database.
+Run `php tests/run.php --list` to enumerate the registered tests for your
+checkout.
+
+## Integration tests
+
+`BootstrapIntegrationTest.php` covers the parts of `src/bootstrap.php` that the
+CLI suite skips because of the `BULLETIN_TEST_MODE` early return:
+
+- a subprocess smoke test boots the real bootstrap (session, UTC timezone,
+  autoloader, i18n) — always runs;
+- optional HTTP tests start the PHP built-in server with `router.php` and assert
+  the real security headers and that sensitive files return `403`. They run
+  automatically on non-Windows platforms or when `BB_HTTP_TESTS=1` is set (CI
+  sets it explicitly).
+
+## Coverage
+
+`php tests/run.php --coverage` prints line coverage using **Xdebug** (executable
+lines) or **PCOV** (executed lines) when available, and otherwise a
+dependency-free report of which `src/` files the suite loaded. The CI `coverage`
+job installs PCOV and runs this automatically.
 
 ## Database Matrix
 

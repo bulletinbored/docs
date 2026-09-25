@@ -187,7 +187,7 @@ Running `migrate:rollback` would reverse batch 3 only.
 The `doctor` command runs a full system diagnostic, checking:
 
 - **PHP version** — requires 8.1+
-- **Extensions** — required (pdo, json, mbstring, fileinfo) and optional (zip, curl, gd)
+- **Extensions** — required (pdo, pdo_sqlite, json, mbstring, fileinfo) and optional (pdo_mysql, zip, curl, gd)
 - **Directory permissions** — verifies data, plugins, themes, migrations are writable
 - **Database** — connection status and table count
 - **Security** — display_errors, expose_php settings

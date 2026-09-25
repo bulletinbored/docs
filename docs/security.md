@@ -11,11 +11,11 @@ bulletinbored is built for a **single trusted administrator** who installs plugi
 - **Zip Slip is mitigated everywhere a package is extracted.** `PluginManager`, `ThemeManager`, `UpdateManager`, and the shared `extract_zip()` all validate every archive entry and reject `..` path traversal and absolute paths before writing.
 - **Language packs are JSON only — no `eval()`.** Uploaded or installed translation files are parsed as plain JSON data. PHP language files are no longer supported, eliminating the supply-chain RCE vector.
 - **TLS verification is enforced.** All update downloads (core, plugins, themes) verify the server certificate with `CURLOPT_SSL_VERIFYPEER=true` and `CURLOPT_SSL_VERIFYHOST=2`.
-- **Attachment authorization.** `/download/{id}` verifies `can_view_thread()` before serving files. Attachments belonging to hidden/pending threads are protected by the same policy as the thread itself. Uploads are linked to threads via `thread_id` or indirectly via `post_id` (looking up the thread through the post). Orphan uploads (with no thread association) require authentication.
+- **Attachment authorization.** `/download/{id}` verifies `can_view_thread()` before serving files. Attachments belonging to hidden/pending threads are protected by the same policy as the thread itself. Uploads are linked to threads via `thread_id` or indirectly via `post_id` (looking up the thread through the post). Orphan uploads (with no thread association) and uploads whose thread is not viewable return `404 Not Found` for **every** user, so their existence is not disclosed.
 - **Plugin dependency graph.** Circular dependencies are detected and rejected. Disabling a plugin recursively disables all plugins that depend on it.
 - **Core update aborts if backup fails.** The updater no longer proceeds without a safety net — if the backup step fails, the update is aborted.
 - **Application state centralized.** The `App` class replaces scattered `$GLOBALS` access, reducing hidden coupling and making the trust boundary easier to reason about.
-- **CSP tightened.** Scripts require a nonce. `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'` are enforced.
+- **CSP tightened.** Scripts require a nonce. `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'` are enforced. Stylesheets are restricted to `style-src 'self'` plus the CDN allow-list; inline `style="…"` attributes are permitted via `style-src-attr 'unsafe-inline'` (needed for dynamic values like avatars and progress bars), while injected `<style>` blocks remain blocked. The fallback avatar is rendered as an inline `<svg>` and needs no inline style at all.
 - **TrustedProxies IPv6 support.** The trusted proxy detection now supports IPv6 addresses and CIDR notation.
 - **`shell_exec()` removed.** Git detection in diagnostics and repo_install now uses `exec()` with return code checking instead of `shell_exec()`.
 - **Code modularized.** `helpers.php` fully split into `src/Helpers/` (Url, AuthHelpers, Upload, Mail, Notifications, Text, Avatar, Data). `posts.php` split into `posts-thread.php`, `posts-new.php`, `posts-edit.php`. All handlers use `App::getInstance()` instead of `global $pdo`. PluginManager and ThemeManager i18n now uses `App::getInstance()->i18n` instead of `$GLOBALS['i18n']`. Reduces file complexity and eliminates global state coupling.
@@ -28,6 +28,13 @@ bulletinbored is built for a **single trusted administrator** who installs plugi
 - **CSRF tokens rotate on every successful validation.** Each POST request validates the token and immediately issues a new one, preventing replay attacks. Use `csrf_validate_request()` in POST handlers. All state-changing operations (including watch/unwatch/logout) use POST with CSRF protection.
 - **Input sanitization is centralized.** The `Bulletin\Request` class provides a single entry point for all user input (`get()`, `post()`, `input()`), ensuring consistent sanitization and eliminating the risk that a new handler forgets to escape input.
 - **Admin actions are audit-logged.** Every state-changing admin action (user create/update/delete/ban/suspend, role changes, category changes, thread moderation, plugin/theme management) is logged to `data/logs/security.log` with admin identity, IP, timestamp, and context.
+- **Secrets and CLI/dev files are never served.** `config.json`, `config.php`, `bb.php` and `router.php` are denied on Apache (`.htaccess`), Nginx (`nginx.conf`), IIS (`web.config`) and the PHP built-in server (`router.php`). The built-in server only serves allow-listed static asset extensions and blocks `data/` and `uploads/private/`.
+- **The installer is hardened.** All three steps enforce CSRF tokens, the re-run guard fails closed (a `config.json` with a `db_driver` is authoritative even if the DB is unreachable), and the SQLite `db_path` is confined to the application directory before any file/`mkdir()` is created. Failures are logged server-side, not echoed.
+- **Rate limiting covers all mutations.** Beyond auth/posting, the file-based limiter throttles edit/delete, watch/unwatch, image and avatar uploads, profile edits, and every admin operation. Sensitive actions (authentication, account changes, destructive content operations and all admin actions) **fail closed**: if the bucket cannot be opened, the lock cannot be acquired, the stored data is corrupt, or the updated hit cannot be persisted, the request is denied rather than allowed. Only non-sensitive actions degrade open. Stale buckets (>24 h) are removed opportunistically so `data/ratelimit/` does not grow without bound.
+- **Client IP behind proxies.** When the request comes from a configured trusted proxy, the client IP is taken as the **first valid** `X-Forwarded-For` value. Deployments that chain several proxies must list every hop in `trusted_proxies` and make sure the front proxy normalises/appends the header; the parser does not attempt to reconstruct an arbitrary chain.
+- **Response headers.** Every response sets `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`; `Strict-Transport-Security` is sent over HTTPS.
+- **Download filename sanitization.** `Content-Disposition` strips control characters and uses an RFC 5987 encoded filename, preventing header injection from user-supplied upload names.
+- **Plugin JSON APIs do not leak internals.** `bellbored` and `textmebored` return a generic `internal_error` and log the exception server-side.
 
 ## Installing code is an act of trust
 
@@ -158,6 +165,7 @@ Logged actions include: user create/update/delete/ban/unban/suspend, role create
 - **Account enumeration prevention**: Login errors are generic ("Invalid credentials") — they don't reveal whether the username exists.
 - **CSRF protection**: Tokens rotate on every successful validation via `csrf_validate_request()`. Use `csrf_validate_request()` in all POST handlers.
 - **Rate limiting**: Login (5/15min), register (5/hr), forgot-password (5/hr), reset-password (10/hr) are rate-limited per client IP. Auth actions fail-closed (denied) when rate limit is exceeded.
+- **Uncaught exceptions are contained**: a global handler in `src/bootstrap.php` logs the error and returns a generic `500` (JSON for API/JSON requests) instead of a raw fatal error, so internal paths and messages are not disclosed when `display_errors` is enabled.
 
 ## New Security Fixes
 
@@ -168,7 +176,9 @@ Attachments in hidden/pending threads are now protected:
 - Download endpoint `/download/{id}` checks `can_view_thread()` before serving
 - `.htaccess` in `uploads/private/` denies all direct access (Apache)
 - `nginx.conf` uses `location ^~ /uploads/private/ { deny all; }` (Nginx)
-- Orphan uploads (no thread association) require authentication
+- Orphan uploads (no thread association) and non-viewable threads return `404` for all users
+- Uploads record their `thread_id`/`post_id` before the file is moved, and the context is validated up front
+- The private uploads directory is created and given a deny-all `.htaccess` by `ensure_private_uploads_dir()` (called from `src/setup.php` on every request and before each upload), so the protection exists on a fresh deployment and does not depend on a runtime directory being present
 
 ### SMTP Injection Prevention
 

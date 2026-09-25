@@ -52,7 +52,7 @@ The application is still a single upload with **no Composer, no Docker, no build
 - `src/bootstrap.php` — install check, `config.json` load, i18n setup, PSR-4 autoloader (delegates to `TrustedProxies.php` and `session_setup.php`)
 - `src/helpers.php` — loads helper modules from `src/Helpers/` and remaining helpers (`base_url()`, `redirect()`)
 - `src/Helpers/Url.php` — URL generation (`url()`, `slugify()`, `current_route_action()`)
-- `src/Helpers/AuthHelpers.php` — auth helpers (`is_logged_in()`, `is_admin()`, `can_view_thread()`, `user_has_permission()`, `validate_password_strength()`)
+- `src/Helpers/AuthHelpers.php` — auth helpers (`is_logged_in()`, `is_admin()`, `can_view_thread()`, `validate_password_strength()`). Permission checks go through the `AuthZ` service; the legacy `user_has_permission()` helper was removed in 0.9.0.
 - `src/Helpers/Upload.php` — upload validation (`validate_upload()`, `get_uploaded_images()`)
 - `src/Helpers/Mail.php` — email sending (`send_email()` via SMTP or PHP mail)
 - `src/Helpers/Notifications.php` — notification helpers (`notify_thread_reply()`, `notify_admin_new_user()`, `notify_mentioned_users()`, `create_notification()`)
@@ -174,8 +174,8 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 ├── bb.php                 # CLI entry point (migrate, plugin:list, cache:flush, ...)
 ├── router.php             # Router for PHP built-in server (dev)
 ├── .htaccess              # SEO-friendly URL rewrites (Apache/LiteSpeed)
-├── nginx.conf             # Nginx server block with rewrite rules (0.5.0)
-├── web.config             # IIS URL Rewrite rules (0.5.0)
+├── nginx.conf             # Nginx server block with rewrite rules and deny rules
+├── web.config             # IIS URL Rewrite rules and deny rules
 ├── VERSION                # Single-source-of-truth version file
 ├── migrations/            # File-based database migrations (namespaced IDs: core:, plugin:)
 │   └── YYYYMMDD_description.php
@@ -183,7 +183,10 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 │   ├── BbPdo.php          # PDO wrapper with SQLite/MySQL SQL normalization
 │   ├── DbQuery.php        # Lightweight query builder (table/where/first/insert/update/delete)
 │   ├── Migrator.php       # File-based migration engine (up/down, batches, rollback)
-│   ├── PluginManager.php  # Plugin discovery, hooks, install/delete, manifest validation, failure isolation
+│   ├── PluginManager.php  # Plugin manager facade (composed from the traits below)
+│   ├── PluginManager/     # Cohesive traits: PluginHooks, PluginManifest, PluginDependencies, PluginPackages
+│   ├── PluginDiscovery.php # Plugin folder/legacy-file discovery and manifest parsing
+│   ├── PackageInstaller.php # ZIP extraction (Zip Slip safe), flattening, integrity checks
 │   ├── ThemeManager.php   # Theme discovery, activation
 │   ├── UpdateManager.php  # Version tracking, updates, backup/recovery
 │   ├── AuthZ.php          # Authorization service (role-based permissions, ownership)
@@ -218,8 +221,8 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 │   │   ├── posts-edit.php # reply, edit, delete post/thread
 │   │   ├── users.php      # login, register, profile, password reset
 │   │   ├── content.php    # categories, search, download
-│   │   └── misc.php       # notifications, messages
-├── tests/                 # Zero-dependency test suite (326 tests)
+│   │   └── misc.php       # markdown preview, mention autocomplete
+├── tests/                 # Zero-dependency test suite (~339 test functions / 1218 assertions)
 │   ├── harness.php        # Test + TestSuite classes (the engine)
 │   ├── run.php            # CLI runner
 │   ├── DbQueryTest.php    # Query builder tests
@@ -249,9 +252,8 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 │   ├── .htaccess          # blocks direct access to database/config files
 │   ├── logs/              # Admin audit log (security.log)
 │   └── ratelimit/         # Rate limiter buckets (auto-created)
-├── lang/                  # Localization files
-│   ├── en.json            # English translations
-│   └── it.json            # Italian translations
+├── lang/                  # Localization files (JSON only — never PHP)
+│   └── en.json            # English translations (add your own <code>.json</code> here)
 └── README.md
 ```
 

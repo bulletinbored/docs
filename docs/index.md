@@ -15,10 +15,10 @@ description: bulletinbored — minimal, extensible forum software with zero depe
 - 🔗 **SEO-Friendly URLs** — Clean URLs like `/thread/1-slug` and `/category/2-name` via rewrite rules.
 - 🛡️ **User Management** — Registration, profiles with avatars, roles, moderation, private messages, and notifications built in.
 - 🔐 **Centralized Authorization** — Role-based permissions with `AuthZ`, ownership-aware checks, and `can:*` middleware. No `is_admin()` bypasses.
-- 🌐 **Localization** — Built-in multilingual support with JSON translation files (EN, IT, DE, ES, FR included).
+- 🌐 **Localization** — Multilingual support via JSON translation files (EN ships with the core; add more under `lang/`).
 - 🔄 **Auto Updates** — Update Manager with preflight checks, backup/restore, and GitHub Releases integration.
 - 🖥️ **Admin Panel** — Full dashboard: categories, users, moderation, settings, plugins, themes, catalog, updates.
-- 🧪 **Zero-dependency Testing** — 422 tests covering auth, content, migrations, plugins, renderer, and security.
+- 🧪 **Zero-dependency Testing** — 1218 assertions covering auth, content, migrations, plugins, renderer, and security.
 
 ## Repository
 
@@ -37,6 +37,9 @@ See [Installation](installation) for the full guide.
 ## Documentation
 
 - [Architecture](architecture) — Understand the MVC structure, manager system, and directory layout.
+- [API Reference](api-reference) — Public helpers, hooks, managers and core services for plugins/themes.
+- [Route Map](routes) — Every HTTP route, handler, middleware and entrypoint.
+- [Action Handlers](action-handlers) — Core request handlers, their modules and protections.
 - [Configuration](configuration) — Database, email, themes, localization, and update server settings.
 - [Rendering](rendering) — Micro template engine: escaping, components, slots, view composers.
 - [CLI & Migrations](cli-migrations) — Zero-dependency CLI (`bb.php`), migration system, `doctor` diagnostics.
@@ -48,6 +51,7 @@ See [Installation](installation) for the full guide.
 - [Versioning](versioning) — Semantic versioning and release management.
 - [Database](database) — Lightweight query builder (DbQuery), immutability, pagination.
 - [Security Model](security) — Trust model, known risks, hardening options, trusted proxies.
+- [Phase 1 Audit](audit-phase1) — Historical 0.6.0 architecture audit (retained for reference).
 
 ## License
 

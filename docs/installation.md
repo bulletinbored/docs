@@ -20,7 +20,7 @@ From zero to working forum in under a minute.
 | **Nginx** | `nginx.conf` (included) | ✅ Manual setup | ✅ Manual setup | Copy to your site config |
 | **IIS** | `web.config` (included) | ✅ Automatic | ✅ Automatic | Requires URL Rewrite Module |
 | **LiteSpeed** | `.htaccess` (included) | ✅ Automatic | ✅ Automatic | Apache-compatible |
-| **PHP built-in** | None needed | ✅ Internal | N/A | Development only |
+| **PHP built-in** | `router.php` | ✅ Internal | ✅ via `router.php` | Run `php -S localhost:8080 router.php` |
 
 ## Quick Start (Apache)
 
@@ -48,12 +48,18 @@ The installer creates `config.json` and the database automatically.
 
 ### Step 5: Security Reminder
 
-After installation completes, **delete the installer files** from your server:
+The installer refuses to run once `config.json` exists, but you should still
+**delete the installer files** after installation completes:
 - `install.php`
 - `install2.php`
 - `install3.php`
+- `api/install.php`
 
 Leaving them in place is a security risk.
+
+The shipped server configs also block direct access to `config.json`,
+`config.php`, `bb.php` and `router.php`. If you customise your server
+configuration, keep those rules.
 
 ### Step 6: Log In
 

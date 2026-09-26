@@ -78,7 +78,7 @@ Example output of `php bb.php migrate:status`:
 4. Applied migrations are tracked in the `migrations` table
 5. Migrations run in batches — rollback reverses the last batch
 6. **File-based locking** prevents concurrent migration runs
-7. **Transactions** (MySQL) ensure atomicity — failed migrations are rolled back and NOT recorded
+7. **Transactions** wrap a migration only when the driver supports transactional DDL (SQLite). MySQL DDL is **not** transactional, so a migration that issues several `ALTER TABLE` statements is not automatically atomic on MySQL: each migration must clean up after itself. The core foreign-key migration does this by dropping any constraint it created if a later `ALTER` fails, and by skipping constraints that already exist (so a re-run completes a previous partial run). A failed migration is never recorded as applied.
 
 ### Migration Contract
 

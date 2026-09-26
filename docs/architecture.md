@@ -222,7 +222,7 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 │   │   ├── users.php      # login, register, profile, password reset
 │   │   ├── content.php    # categories, search, download
 │   │   └── misc.php       # markdown preview, mention autocomplete
-├── tests/                 # Zero-dependency test suite (~339 test functions / 1218 assertions)
+├── tests/                 # Zero-dependency test suite (346 core test functions / 1242 assertions)
 │   ├── harness.php        # Test + TestSuite classes (the engine)
 │   ├── run.php            # CLI runner
 │   ├── DbQueryTest.php    # Query builder tests

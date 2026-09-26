@@ -5,7 +5,7 @@
   "out": "site",
   "logo": {
     "light": "assets/images/logo.svg",
-    "dark": "assets/images/logo.svg",
+    "dark": "assets/images/logo-dark.svg",
     "alt": "bulletinbored Logo",
     "height": "32px"
   },

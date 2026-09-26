@@ -266,22 +266,27 @@ If `update_server` is not a GitHub URL, the Update Manager falls back to fetchin
 - Core updates are downloaded automatically from GitHub releases and extracted into the forum root.
 - Plugin and theme updates can be downloaded automatically from GitHub if a `repo` URL is defined in `catalog.json`.
 - ZIP upload via the admin panel is supported for plugin/theme updates.
-- After extraction, version metadata is updated automatically.
+- After a successful update, the version recorded in `data/updates.json` is read from the updated package's `manifest.json`; the package files themselves are not rewritten.
 
 #### `applyUpdate()` behavior
 
 `applyUpdate()` dispatches to different strategies based on the `$type` parameter:
 
-- **`plugin` / `theme`** — Uses atomic rename in the extension's directory (`plugins/{name}` or `themes/{name}`):
-  1. Runs preflight checks (disk space, writability)
-  2. Extracts the ZIP to a temporary directory inside the extension folder via `PackageInstaller`
-  3. Renames the existing extension directory to `_old_{name}_{uniqid}` (if present)
-  4. Atomically renames the extracted source to the target directory
-  5. On failure, rolls back by restoring the old directory
-  6. Validates the target directory is not empty
-  7. Detects version from `manifest.json` or PHP file header
-  8. Syncs version metadata into the package
+- **`plugin` / `theme`** — Delegates to the manager that owns the package lifecycle:
+  - `plugin` → `PluginManager::updateFromZip($name, $zipPath)`
+  - `theme` → `ThemeManager::updateFromZip($name, $zipPath)`
 
-  The same `PackageInstaller` pipeline is used by `PluginManager::installFromZip` and `PluginManager::updateFromZip`, so all manifest validation, core/PHP constraint checks, and file-integrity verification apply identically to fresh installs and updates. The `verifyConfigKey` passed in matches the per-type admin toggle (`plugin_verify_files` / `theme_verify_files`).
+  Both use the same rollback-safe pipeline:
+
+  1. Runs preflight checks (disk space, writability)
+  2. Moves the existing extension directory to `_old_{name}_{uniqid}` (if present)
+  3. Extracts the ZIP and verifies the manifest plus, when enabled, the `files` integrity list
+  4. For plugins, runs `plugin_updated` and `<key>_on_update()` **before** the backup is committed
+  5. Commits by moving the staged package into place
+  6. On any failure: deletes the staged package, restores the `_old_*` backup, restores the previous `installed.json` record, and returns a failure
+
+  Because the Update Manager calls straight into `PluginManager` / `ThemeManager`, **"Update All" and the admin panel share one pipeline**: the same manifest/core/PHP constraint checks, file-integrity verification, lifecycle hooks (`on_update`) and rollback guarantees apply no matter how the update was triggered. The `verifyConfigKey` used matches the per-type admin toggle (`plugin_verify_files` / `theme_verify_files`).
+
+  > **Rollback is filesystem-only.** If a lifecycle hook fails, the previous files and `installed.json` record are restored, but database changes the hook already performed are **not** automatically reverted. Plugin authors should keep migrations idempotent or provide their own rollback.
 
 - **`core`** — Extracts into the forum root (legacy behavior for manual core ZIP uploads)

@@ -24,7 +24,7 @@ the router sends the response.
 | `src/actions/admin/themes.php` | ~89 | Theme management. |
 | `src/actions/admin/catalog.php` | ~127 | Extension catalog. |
 | `src/actions/admin/updates.php` | ~101 | Core/extension updates. |
-| `src/actions/admin/diagnostics.php` | ~66 | System diagnostics. |
+| `src/actions/admin/diagnostics.php` | ~82 | System diagnostics (install requirements + PHP settings). |
 | `src/actions/posts.php` | ~39 | Posts dispatcher. |
 | `src/actions/posts-thread.php` | ~230 | Thread view, watch/unwatch, image upload. |
 | `src/actions/posts-new.php` | ~89 | New thread creation. |
@@ -118,4 +118,3 @@ rate-limit actions and windows are listed in
 Earlier versions used 49 `die()` and 3 `exit()` calls in the handlers and
 returned `bool` from every routing callback. That legacy control flow has been
 removed; only `Response`-based returns (and a single binary-download path) remain.
-See the historical [Phase 1 Audit](audit-phase1) for the original findings.

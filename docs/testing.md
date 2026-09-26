@@ -416,8 +416,8 @@ The suite contains test cases across the following files. The exact count depend
 |---|---|---|
 | `DbQueryTest.php` | 9 | Query builder |
 | `E2eFlowTest.php` | 5 | End-to-end flows |
-| `PluginManagerTest.php` | 7 | Hook system |
-| `AuthTest.php` | 7 | Auth, permissions, CSRF |
+| `PluginManagerTest.php` | 14 | Hook system, lifecycle & rollback |
+| `AuthTest.php` | 6 | Auth, permissions, CSRF |
 | `MigratorTest.php` | 7 | Migration engine |
 | `SecurityTest.php` | 7 | CSRF rotation, Request, audit log |
 | `ResponseTest.php` | 9 | Response object + Request |
@@ -427,7 +427,7 @@ The suite contains test cases across the following files. The exact count depend
 | `RendererTest.php` | 4 | Template engine |
 | `ModerationTest.php` | 11 | Moderation actions |
 | `ModerationHandlerTest.php` | 6 | Moderation handler integration |
-| `DatabaseMatrixTest.php` | 6 | Cross-database (SQLite) |
+| `DatabaseMatrixTest.php` | 8 | Cross-database (SQLite) |
 | `PluginRouterTest.php` | 4 | Plugin routing |
 | `RegistrationTest.php` | 15 | Registration & login |
 | `InstallerTest.php` | 11 | Installer |
@@ -438,18 +438,19 @@ The suite contains test cases across the following files. The exact count depend
 | `SuggestedTest.php` | 10 | Edge cases |
 | `UpdateManagerTest.php` | 13 | Updater |
 | `UpdateFailureModeTest.php` | 15 | Update failure modes |
-| `SecurityFixesTest.php` | 32 | Security fixes |
-| `PluginThemeTest.php` | 15 | Plugins & themes |
+| `SecurityFixesTest.php` | 26 | Security fixes |
+| `PluginThemeTest.php` | 21 | Plugins & themes |
 | `EmailSecurityTest.php` | 14 | Email security |
 | `EndpointAuthorizationTest.php` | 14 | Endpoint authorization |
 | `SessionSecurityTest.php` | 12 | Session security |
 | `UploadSecurityTest.php` | 14 | Upload security |
-| **Total (SQLite)** | | **~339 test functions** |
-| **Total (with MySQL)** | | **~345 test functions** |
+| **Total (core, SQLite)** | | **346 test functions** |
 
-The counts above reflect the number of registered test functions. Each test runs
-multiple assertions: the current suite reports **1218 assertions, 0 failures**
-with `php tests/run.php`. The exact count depends on whether
+The counts above reflect the number of registered **core** test functions
+(test suites shipped inside plugins under `plugins/*/tests/` add more, e.g.
+`plugins/editbored` contributes 47). Each test runs multiple assertions: the
+current suite reports **1242 assertions, 0 failures** with `php tests/run.php`
+on a PHP build with all required extensions. The exact count depends on whether
 `DatabaseMatrixTest.php` runs once (SQLite only) or again per service database.
 Run `php tests/run.php --list` to enumerate the registered tests for your
 checkout.

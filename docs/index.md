@@ -18,7 +18,7 @@ description: bulletinbored — minimal, extensible forum software with zero depe
 - 🌐 **Localization** — Multilingual support via JSON translation files (EN ships with the core; add more under `lang/`).
 - 🔄 **Auto Updates** — Update Manager with preflight checks, backup/restore, and GitHub Releases integration.
 - 🖥️ **Admin Panel** — Full dashboard: categories, users, moderation, settings, plugins, themes, catalog, updates.
-- 🧪 **Zero-dependency Testing** — 1218 assertions covering auth, content, migrations, plugins, renderer, and security.
+- 🧪 **Zero-dependency Testing** — 1242 assertions covering auth, content, migrations, plugins, renderer, and security.
 
 ## Repository
 
@@ -51,7 +51,6 @@ See [Installation](installation) for the full guide.
 - [Versioning](versioning) — Semantic versioning and release management.
 - [Database](database) — Lightweight query builder (DbQuery), immutability, pagination.
 - [Security Model](security) — Trust model, known risks, hardening options, trusted proxies.
-- [Phase 1 Audit](audit-phase1) — Historical 0.6.0 architecture audit (retained for reference).
 
 ## License
 

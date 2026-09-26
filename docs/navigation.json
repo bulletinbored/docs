@@ -17,6 +17,5 @@
   { "title": "Plugin Development", "path": "/plugins/" },
   { "title": "Theme Development", "path": "/themes/" },
   { "title": "Security Model", "path": "/security/" },
-  { "title": "Phase 1 Audit", "path": "/audit-phase1/" },
   { "title": "Versioning", "path": "/versioning/" }
 ]

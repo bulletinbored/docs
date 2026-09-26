@@ -10,7 +10,14 @@ From zero to working forum in under a minute.
 
 - A web server running **PHP 8.1+**
 - The **PDO** extension with either **SQLite** or **MySQL** driver
+- The **mbstring** extension — used for UTF-8 string handling (avatars, text helpers)
+- The **zip** extension (`ZipArchive`) — required to install or update plugins, themes, and language packs
 - A supported web server (see below)
+
+`curl` is optional: when it is missing, package downloads fall back to
+`file_get_contents()` (which requires `allow_url_fopen`). All three steps of the
+installer and the update system work without `curl` as long as that fallback is
+available.
 
 ## Supported Web Servers
 
@@ -64,6 +71,19 @@ configuration, keep those rules.
 ### Step 6: Log In
 
 Log in with the administrator credentials you just created.
+
+## Post-installation checklist
+
+Before putting the forum in front of real users:
+
+1. **Delete the installer files** — `install.php`, `install2.php`, `install3.php`, `api/install.php`. Once `config.json` exists they refuse to run, but removing them removes the attack surface entirely.
+2. **Turn off error display** — set `display_errors = Off` and `expose_php = Off` in `php.ini` (the `doctor` command and the admin diagnostics page warn when they are on).
+3. **Serve over HTTPS** — set `force_https`/`cookie_secure` to `true` and configure the reverse proxy header if applicable (see above).
+4. **Make sure sensitive paths are blocked** — `data/`, `uploads/private/`, `config.json`, `bb.php` and `router.php` must all return `403`. The shipped `.htaccess`, `nginx.conf`, `web.config` and `router.php` already do this; if you customise them, keep the rules.
+5. **Verify the admin password** — if you installed manually and did not set `admin_pass` in `config.json`, the installer generates a temporary one and writes it to the PHP error log with a `CHANGE THIS IMMEDIATELY` note. Change it from the admin panel as soon as you log in.
+6. **Check writability** — `data/`, `uploads/`, `uploads/avatars/` and `uploads/private/` must remain writable by the web server user.
+7. **Arrange backups** — at minimum, back up `config.json` and the database (the SQLite file in `data/`, or the MySQL database). `data/` also contains `installed.json`, sessions, logs and update metadata.
+8. **Review `plugin_verify_files` / `theme_verify_files`** — keep them enabled (default) and read the [Security Model](security.md) before installing third-party extensions.
 
 ## Nginx Setup
 

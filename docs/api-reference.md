@@ -272,13 +272,15 @@ Lightweight query builder: `table()`, `select()`, `where()`, `whereIn()`,
 
 `loadTranslations()`, `discover()`, `getAll()`, `getActive()`,
 `getActiveMeta()`, `activate()`, `getCssUrl()`, `getCssPath()`, `getVersion()`,
-`installFromZip()`, `delete()`, `removeMissing()`, `installFromRepo()`.
+`installFromZip()`, `updateFromZip()`, `delete()`, `removeMissing()`, `installFromRepo()`.
 
 ## 9. UpdateManager — `lib/UpdateManager.php`
 
 `setVersion()`, `getVersion()`, `recordCheck()`, `getAvailableUpdate()`,
 `checkAll()`, `applyUpdate()`, `applyCoreUpdate()`, `applyExtensionUpdate()`,
 `getRemoteVersion()`, `getLockedExtensions()`.
+
+Extension updates are **delegated** to the owning manager: `applyExtensionUpdate()` and the ZIP-upload path of `applyUpdate()` call `PluginManager::updateFromZip()` for plugins and `ThemeManager::updateFromZip()` for themes, so the Update Manager does not run its own install pipeline. See [Managers → Applying updates](managers.md#applying-updates).
 
 ## 10. Migrator — `lib/Migrator.php`
 

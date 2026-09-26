@@ -58,7 +58,7 @@ Folder-based plugins use `manifest.json` with the following schema:
 | `routes` | No | Array of custom route definitions |
 | `events` | No | Array of event subscriptions (documentation only) |
 | `bootstrap` | No | Bootstrap filename (defaults to `<id>.php`) |
-| `files` | No | Array of files for integrity verification. When `plugin_verify_files` is enabled, files present but undeclared are rejected, and files declared but missing are rejected. |
+| `files` | No | Array of files for integrity verification. When `plugin_verify_files` is enabled, files present but undeclared are rejected, and files declared but missing are rejected. Repo-only paths that GitHub source archives add automatically (`tests/`, `.github/`, `.gitignore`, `composer.*`, `phpunit.xml*`, `.editorconfig`, `.travis.yml`) are ignored by the check and stripped from the deployed package, so you do not list them. |
 
 The manifest is validated at install time. Plugins with incompatible core/PHP versions, unmet dependencies, or manifest schema errors are rejected. Install and update run the same validation pipeline.
 
@@ -279,7 +279,7 @@ The installer automatically detects a single top-level folder and flattens it.
 ## Managing Plugins
 
 - **Install**: upload a ZIP to add the plugin. Install and update go through the same `PackageInstaller` pipeline, so the same security checks apply to both.
-- **Update**: the Update Manager can apply new versions as ZIP packages. The old folder is moved aside as a backup, the new ZIP is extracted and verified, and the backup is removed only on success. On any failure, the backup is restored and the original is left untouched.
+- **Update**: the Update Manager can apply new versions as ZIP packages. It delegates to `PluginManager::updateFromZip()`, so the manual admin action and **"Update All"** run the exact same pipeline: the old folder is moved aside as a backup, the new ZIP is extracted and verified, lifecycle hooks (`plugin_updated`, `<key>_on_update()`) run, and the backup is removed only on success. On any failure the backup and the previous `installed.json` record are restored and the original is left untouched.
 - **Enable / Disable**: `enable()` checks dependencies before activating. `disable()` cascades transitively to all plugins that depend on the disabled one (each is marked with `auto_disabled_by`).
 - **Auto-cascade is one-way**: if `A → B → C` and you disable `C`, both `A` and `B` are auto-disabled. Re-enabling `C` does **not** automatically re-enable `A` or `B`. Use `enableWithDeps($name)` to walk the dependency chain back up — each plugin is enabled only if its own dependencies are satisfied.
 - **Uninstall**: disables the plugin, runs the uninstall lifecycle (see below), removes the installed folder, and clears metadata from `data/plugins.json` and `data/installed.json`.
@@ -315,7 +315,10 @@ The core fires these events around install, update, enable, disable, and uninsta
 
 ### Lifecycle functions
 
-Plugins can opt in to install-time, update-time, and uninstall-time work by defining these functions in their bootstrap file. They are called inside a `try/catch`, so a failure is logged but does not block the operation.
+Plugins can opt in to install-time, update-time, and uninstall-time work by defining these functions in their bootstrap file. They are called inside a `try/catch`, so a failure is logged; whether it also aborts the operation depends on the hook:
+
+- **`on_install` / `on_update`** — a throw aborts the install/update and triggers the full rollback (previous files, `installed.json` and the backup are restored). Keep them safe and idempotent.
+- **`on_uninstall` / `cleanup` / `migration_rollback`** — a throw is logged but does not block the uninstall.
 
 | Function | When |
 |---|---|

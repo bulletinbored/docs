@@ -156,6 +156,7 @@ Plugins register callbacks via `$pluginManager->addHook('event', $callback, $pri
 | `before_render` | action | — | Before any page render (head injection) |
 | `frontend_before_render` | action | — | Before frontend page render |
 | `admin_before_render` | action | — | Before admin page render |
+| `admin_sidebar_items` | action | — | Inside the admin sidebar. Callbacks echo `<li>` entries to add menu items. |
 | `footer_before_render` | action | — | Before footer render |
 | `render_content` | filter | `$text` | Post content rendering. Return HTML to override Markdown. |
 
@@ -237,6 +238,31 @@ function myplugin_init() {
 }
 ```
 
+### Example: Add an Admin Sidebar Item
+
+`admin_sidebar_items` is emitted once inside the Extensions group of the admin
+sidebar. Echo an `<li>` (matching the existing sidebar markup) to add an entry.
+The callback only runs for administrators, and only on admin pages.
+
+```php
+function myplugin_init() {
+    global $pluginManager;
+    $pluginManager->addHook('admin_sidebar_items', function() {
+        if (!function_exists('is_admin') || !is_admin()) {
+            return;
+        }
+        $url = htmlspecialchars(base_url() . '/admin/my-plugin', ENT_QUOTES, 'UTF-8');
+        $active = str_contains($_SERVER['REQUEST_URI'] ?? '', '/admin/my-plugin') ? 'active' : '';
+        echo '<li><a href="' . $url . '" class="' . $active . '">'
+            . '<i class="fas fa-database"></i> <span>My Plugin</span></a></li>';
+    });
+}
+```
+
+Pair it with a route registered in the same `{name}_init()` (see
+[Custom Routes and Middleware](#custom-routes-and-middleware)) so the link points
+to a page the plugin actually serves.
+
 ## Directory Structure
 
 ```
@@ -278,7 +304,7 @@ The installer automatically detects a single top-level folder and flattens it.
 
 ## Managing Plugins
 
-- **Install**: upload a ZIP to add the plugin. Install and update go through the same `PackageInstaller` pipeline, so the same security checks apply to both.
+- **Install**: upload a ZIP or install from the catalog/repository. Both paths download into a staging directory and run the same validation — manifest plus core/PHP constraints and, when `plugin_verify_files` is enabled, the `files` integrity check — before the package is committed, so a plugin gets identical guarantees whether it came from a ZIP or a Git repository. Reinstalling over an existing plugin is treated as an update: it runs the same hooks and rolls back files plus the `installed.json` record on failure.
 - **Update**: the Update Manager can apply new versions as ZIP packages. It delegates to `PluginManager::updateFromZip()`, so the manual admin action and **"Update All"** run the exact same pipeline: the old folder is moved aside as a backup, the new ZIP is extracted and verified, lifecycle hooks (`plugin_updated`, `<key>_on_update()`) run, and the backup is removed only on success. On any failure the backup and the previous `installed.json` record are restored and the original is left untouched.
 - **Enable / Disable**: `enable()` checks dependencies before activating. `disable()` cascades transitively to all plugins that depend on the disabled one (each is marked with `auto_disabled_by`).
 - **Auto-cascade is one-way**: if `A → B → C` and you disable `C`, both `A` and `B` are auto-disabled. Re-enabling `C` does **not** automatically re-enable `A` or `B`. Use `enableWithDeps($name)` to walk the dependency chain back up — each plugin is enabled only if its own dependencies are satisfied.
@@ -460,7 +486,7 @@ $pluginManager->loadTranslations($lang);
 
 // Lifecycle
 $pluginManager->loadEnabled();
-$pluginManager->installFromRepo('https://github.com/user/repo', 'v1.0.0');
+$pluginManager->installFromRepo('https://github.com/user/repo', 'v1.0.0'); // Staged + validated like installFromZip; reinstalls run on_update
 $pluginManager->installFromZip('/path/to/plugin.zip');                  // Fresh install via ZIP. Detects name from manifest.
 $pluginManager->installFromZip('/path/to/v2.zip', 'myplugin', true);     // Update in place (replaces existing folder)
 $pluginManager->updateFromZip('myplugin', '/path/to/v2.zip');           // Convenience wrapper for update

@@ -32,7 +32,7 @@ Edit `config.json` to customize your installation.
     "force_https": true,
     "cookie_secure": true,
     "email_notifications": true,
-    "version": "0.9.0",
+    "version": "0.9.6",
     "plugin_manifest": "__DIR__/data/plugins.json",
     "theme_manifest": "__DIR__/data/themes.json",
     "update_manifest": "__DIR__/data/updates.json",
@@ -43,7 +43,7 @@ Edit `config.json` to customize your installation.
 
 ## Version
 
-Do not hardcode the version; the application reads it from the `VERSION` file at the project root, e.g. `0.9.0`. See [Versioning](versioning) for how to manage releases.
+Do not hardcode the version; the application reads it from the `VERSION` file at the project root, e.g. `0.9.6`. See [Versioning](versioning) for how to manage releases.
 
 ## Database
 

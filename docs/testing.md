@@ -436,20 +436,20 @@ The suite contains test cases across the following files. The exact count depend
 | `E2eIntegrationTest.php` | 7 | E2E flows |
 | `DatabaseIntegrityTest.php` | 11 | Database integrity |
 | `SuggestedTest.php` | 10 | Edge cases |
-| `UpdateManagerTest.php` | 13 | Updater |
+| `UpdateManagerTest.php` | 16 | Updater |
 | `UpdateFailureModeTest.php` | 15 | Update failure modes |
 | `SecurityFixesTest.php` | 26 | Security fixes |
-| `PluginThemeTest.php` | 21 | Plugins & themes |
+| `PluginThemeTest.php` | 22 | Plugins & themes |
 | `EmailSecurityTest.php` | 14 | Email security |
 | `EndpointAuthorizationTest.php` | 14 | Endpoint authorization |
 | `SessionSecurityTest.php` | 12 | Session security |
 | `UploadSecurityTest.php` | 14 | Upload security |
-| **Total (core, SQLite)** | | **346 test functions** |
+| **Total (core, SQLite)** | | **350 test functions** |
 
 The counts above reflect the number of registered **core** test functions
 (test suites shipped inside plugins under `plugins/*/tests/` add more, e.g.
 `plugins/editbored` contributes 47). Each test runs multiple assertions: the
-current suite reports **1242 assertions, 0 failures** with `php tests/run.php`
+current suite reports **1266 assertions, 0 failures** with `php tests/run.php`
 on a PHP build with all required extensions. The exact count depends on whether
 `DatabaseMatrixTest.php` runs once (SQLite only) or again per service database.
 Run `php tests/run.php --list` to enumerate the registered tests for your

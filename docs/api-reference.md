@@ -188,6 +188,9 @@ Render hooks emitted by `views/header.php`: `before_render`,
 `mobile_tabbar_icons`, `mobile_stack_tabs`, `mobile_stack_panes`,
 `footer_before_render`.
 
+Render hook emitted by `views/admin_header.php`: `admin_sidebar_items` (admin
+sidebar entries).
+
 ## 3. PluginManager
 
 `lib/PluginManager.php` is a thin facade composed from four traits
@@ -227,14 +230,10 @@ Render hooks emitted by `views/header.php`: `before_render`,
 
 ### Plugin lifecycle semantics
 
-- A **fresh install** runs `on_install`; an **update** does not (it runs
-  `on_update` instead). This prevents one-off setup work from repeating.
-- `plugin_installed` / `plugin_updated` hooks and the lifecycle functions run
-  **before** the previous version's backup is discarded, so a failure can still
-  roll back.
-- If a lifecycle hook throws, `installFromZip()` / `updateFromZip()` restore
-  both the previous files **and** the previous `installed.json` record, keeping
-  the filesystem and metadata consistent, and return a failure result.
+- A **fresh install** runs `on_install`; an **update** does not (it runs `on_update` instead). This prevents one-off setup work from repeating.
+- `plugin_installed` / `plugin_updated` hooks and the lifecycle functions run **before** the previous version's backup is discarded, so a failure can still roll back.
+- If a lifecycle hook throws, `installFromZip()` / `updateFromZip()` restore both the previous files **and** the previous `installed.json` record, keeping the filesystem and metadata consistent, and return a failure result.
+- `installFromRepo()` stages the repository in a temporary directory and then runs the same validation and commit/rollback pipeline as `installFromZip()`. Reinstalling over an existing plugin is treated as an update, so it runs `on_update` and rolls back files plus metadata on failure.
 
 ## 4. Renderer (`Bulletin\Renderer`) — `src/Renderer.php`
 

@@ -96,7 +96,7 @@ The installer automatically detects the theme folder and installs it.
 - **Enable / Disable**: toggle theme state without deleting files
 - **Delete**: removes the theme files (protected: `freshbored` cannot be deleted)
 - **Activate**: set as active theme
-- **Install**: upload a ZIP to add the theme
+- **Install**: upload a ZIP or install from the catalog/repository. Both paths stage the package, run the same validation (including the `files` integrity list when `theme_verify_files` is enabled), and only then commit it, so the previous theme is never removed before the replacement is validated.
 - **Update**: the Update Manager can apply new versions as ZIP packages. Updates go through `ThemeManager::updateFromZip()`: the current theme folder is moved to a backup, the new ZIP is extracted and verified, and the backup is removed only on success. On any failure the backup is restored and the original theme is left untouched.
 
 ### Directory Structure

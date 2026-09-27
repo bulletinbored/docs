@@ -4,7 +4,7 @@ description: bulletinbored documentation
 ---
 # Versioning
 
-bulletinbored uses semantic versioning (SemVer): `MAJOR.MINOR.PATCH` — currently `0.9.0`.
+bulletinbored uses semantic versioning (SemVer): `MAJOR.MINOR.PATCH` — currently `0.9.6`.
 
 The project is released under the BSD Zero Clause (BSD-0). See [LICENSE](https://github.com/bulletinbored/bulletinbored-core/blob/master/LICENSE) and [CLA.md](https://github.com/bulletinbored/bulletinbored-core/blob/master/CLA.md).
 

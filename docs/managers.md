@@ -121,7 +121,7 @@ $pluginManager->addHook('post_after_create', $callback, 15); // runs later
 
 **CRUD — Posts:** `post_before_create`, `post_after_create`, `post_create_block`, `post_before_update`, `post_after_update`, `post_before_delete`, `post_after_delete`, `post_delete_block`
 
-**Rendering:** `thread_before_view`, `thread_posts_before_view`, `thread_before_render`, `thread_after_render`, `thread_not_found`, `before_render`, `frontend_before_render`, `admin_before_render`, `footer_before_render`, `render_content`
+**Rendering:** `thread_before_view`, `thread_posts_before_view`, `thread_before_render`, `thread_after_render`, `thread_not_found`, `before_render`, `frontend_before_render`, `admin_before_render`, `admin_sidebar_items`, `footer_before_render`, `render_content`
 
 **Auth:** `auth_before_verify`, `auth_login_block`, `auth_after_login`, `auth_login_failed`
 
@@ -265,6 +265,7 @@ If `update_server` is not a GitHub URL, the Update Manager falls back to fetchin
 
 - Core updates are downloaded automatically from GitHub releases and extracted into the forum root.
 - Plugin and theme updates can be downloaded automatically from GitHub if a `repo` URL is defined in `catalog.json`.
+- Installing an extension from a repository (catalog or `installFromRepo()`) uses the same pipeline as a ZIP install: the package is downloaded into a staging directory and validated (manifest plus core/PHP constraints and, when enabled, the `files` integrity list) before the existing directory is moved aside and the staged package swapped in. Reinstalling over an existing plugin also runs `plugin_updated` / `on_update` and rolls back files plus the `installed.json` record on failure.
 - ZIP upload via the admin panel is supported for plugin/theme updates.
 - After a successful update, the version recorded in `data/updates.json` is read from the updated package's `manifest.json`; the package files themselves are not rewritten.
 

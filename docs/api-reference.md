@@ -44,6 +44,11 @@ helpers from `src/csp.php`.
 | `validate_input()` | `validate_input($data): string` |
 | `clean_text()` | `clean_text($data): string` |
 
+`clean_text()` trims a raw single-line value (e.g. a thread title) and does **not**
+HTML-escape it; values are stored as typed and escaped once on output with
+`escape()`, like usernames. (Older versions escaped on input as well, which
+double-encoded titles such as `we're`.)
+
 ### CSRF & rate limiting — `src/Security.php`
 
 | Function | Signature |

@@ -32,18 +32,22 @@ Edit `config.json` to customize your installation.
     "force_https": true,
     "cookie_secure": true,
     "email_notifications": true,
-    "version": "0.9.6",
+    "version": "0.9.7",
     "plugin_manifest": "__DIR__/data/plugins.json",
     "theme_manifest": "__DIR__/data/themes.json",
     "update_manifest": "__DIR__/data/updates.json",
     "update_server": "",
-    "update_mirror": ""
+    "update_mirror": "",
+
+    "install_id": "",
+    "telemetry": true,
+    "telemetry_url": "https://www.bulletinbored.net/heartbeat.php"
 }
 ```
 
 ## Version
 
-Do not hardcode the version; the application reads it from the `VERSION` file at the project root, e.g. `0.9.6`. See [Versioning](versioning) for how to manage releases.
+Do not hardcode the version; the application reads it from the `VERSION` file at the project root, e.g. `0.9.7`. See [Versioning](versioning) for how to manage releases.
 
 ## Database
 
@@ -85,6 +89,30 @@ Notification e-mails for replies and mentions are sent by default. Set:
 
 to keep in-app notifications only (no e-mail). This does not affect
 registration/verification or password-reset e-mails.
+
+## Telemetry
+
+bulletinbored can send an anonymous daily "heartbeat" so the project can count
+**active installations**. It is **opt-out** (enabled by default).
+
+```json
+"install_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+"telemetry": true,
+"telemetry_url": "https://www.bulletinbored.net/heartbeat.php"
+```
+
+| Key | Default | Effect |
+|---|---|---|
+| `install_id` | generated at install | Random UUID identifying the installation. Not derived from your domain, users or IP. An installation upgraded from a release without it generates one on the first heartbeat. |
+| `telemetry` | `true` | Set to `false` to disable the heartbeat entirely — no network request is made. Also switchable in **Admin → Settings → "Send anonymous statistics"**. |
+| `telemetry_url` | bulletinbored collector | Collector endpoint. Change it only if you host your own collector. |
+
+The payload contains only the `install_id`, core version, PHP version, database
+driver, plugin/theme counts and the active language. **No IP address, domain,
+user data, posts or content are ever sent.** The request runs fire-and-forget
+with a short timeout, at most once per day, and every failure is ignored, so it
+never slows down or breaks the forum. See the [Security Model](security) for the
+privacy rationale.
 
 ## HTTPS
 

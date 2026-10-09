@@ -4,7 +4,7 @@ description: bulletinbored documentation
 ---
 # Versioning
 
-bulletinbored uses semantic versioning (SemVer): `MAJOR.MINOR.PATCH` — currently `0.9.6`.
+bulletinbored uses semantic versioning (SemVer): `MAJOR.MINOR.PATCH` — currently `0.9.7`.
 
 The project is released under the BSD Zero Clause (BSD-0). See [LICENSE](https://github.com/bulletinbored/bulletinbored-core/blob/master/LICENSE) and [CLA.md](https://github.com/bulletinbored/bulletinbored-core/blob/master/CLA.md).
 
@@ -19,7 +19,7 @@ Since this is `0.x`, the API is still considered unstable: minor releases may br
 ## How to bump a version
 
 1. Edit the `VERSION` file at the project root (single line, e.g. `0.9.0`)
-2. Update the version in `config.json` if you keep an inline fallback there
+2. Update the version in `config-sample.json` (and in `config.json` if you keep an inline fallback) so they match `VERSION` — the `VersionConsistencyTest` asserts that `VERSION`, `config-sample.json` and the release notes agree
 3. If you ship updates via the Update Manager, make sure `versions.json` on your update server exposes the new version
 4. Tag the release in git:
 

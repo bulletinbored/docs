@@ -88,8 +88,10 @@ tests/
 ├── PluginThemeTest.php          # Plugin and theme tests
 ├── EndpointAuthorizationTest.php # HTTP endpoint authorization matrix
 ├── EmailSecurityTest.php        # SMTP injection and email validation
-├── SessionSecurityTest.php      # Session invalidation tests
-└── UploadSecurityTest.php       # Upload security tests
+├── SessionSecurityTest.php     # Session invalidation tests
+├── UploadSecurityTest.php      # Upload security tests
+├── TelemetryTest.php           # Anonymous install heartbeat (guards, payload, opt-out)
+└── VersionConsistencyTest.php  # VERSION / config-sample / release-notes consistency
 ```
 
 ## How Tests Are Registered
@@ -427,7 +429,7 @@ The suite contains test cases across the following files. The exact count depend
 | `RendererTest.php` | 4 | Template engine |
 | `ModerationTest.php` | 11 | Moderation actions |
 | `ModerationHandlerTest.php` | 6 | Moderation handler integration |
-| `DatabaseMatrixTest.php` | 8 | Cross-database (SQLite) |
+| `DatabaseMatrixTest.php` | 9 | Cross-database (SQLite) |
 | `PluginRouterTest.php` | 4 | Plugin routing |
 | `RegistrationTest.php` | 15 | Registration & login |
 | `InstallerTest.php` | 11 | Installer |
@@ -444,12 +446,14 @@ The suite contains test cases across the following files. The exact count depend
 | `EndpointAuthorizationTest.php` | 14 | Endpoint authorization |
 | `SessionSecurityTest.php` | 12 | Session security |
 | `UploadSecurityTest.php` | 14 | Upload security |
-| **Total (core, SQLite)** | | **350 test functions** |
+| `TelemetryTest.php` | 6 | Anonymous install heartbeat |
+| `VersionConsistencyTest.php` | 1 | Version consistency |
+| **Total (core, SQLite)** | | **358 test functions** |
 
 The counts above reflect the number of registered **core** test functions
 (test suites shipped inside plugins under `plugins/*/tests/` add more, e.g.
 `plugins/editbored` contributes 47). Each test runs multiple assertions: the
-current suite reports **1266 assertions, 0 failures** with `php tests/run.php`
+current suite reports **1305 assertions, 0 failures** with `php tests/run.php`
 on a PHP build with all required extensions. The exact count depends on whether
 `DatabaseMatrixTest.php` runs once (SQLite only) or again per service database.
 Run `php tests/run.php --list` to enumerate the registered tests for your

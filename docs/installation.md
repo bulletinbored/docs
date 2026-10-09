@@ -53,6 +53,8 @@ Visit the site in your browser. If `config.json` is missing, the 3-step installe
 
 The installer creates `config.json` and the database automatically.
 
+If the database you select already contains forum data, the installer stops with a migration hint instead of silently reusing it (see [Moving an existing forum](#moving-an-existing-forum)).
+
 ### Step 5: Security Reminder
 
 The installer refuses to run once `config.json` exists, but you should still
@@ -158,3 +160,12 @@ Without it, the `force_https` redirect may loop. You can also disable HTTPS forc
 ## Manual Installation
 
 If you prefer to configure `config.json` yourself instead of using the web installer, see [Manual Installation](installation-manual).
+
+## Moving an existing forum
+
+The installer is for **first-time** setup only and refuses to reuse a database that already contains forum data. To move a forum to another server:
+
+- **Copy the whole site**, including `config.json` and the database (the SQLite file in `data/`, or a MySQL dump) plus `uploads/`, `plugins/`, `themes/` and `data/`. Then adjust `config.json` for the new host — database credentials, `db_path`, `base_url`, `force_https`/`cookie_secure`. With `config.json` present the installer never runs.
+- **Or install fresh, then swap the database**: complete a clean install on the new server, then replace `data/database.sqlite` with your backup (and re-upload `uploads/`, `plugins/`, `themes/`).
+
+Do **not** migrate by running the installer against a database that already holds data: the administrator credentials you enter would be ignored (the existing admin wins), leaving a confusing half-migrated state.

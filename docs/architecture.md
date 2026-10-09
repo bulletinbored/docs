@@ -11,6 +11,7 @@ description: Understand the MVC structure, manager system, and directory layout.
 - **UpdateManager** — handles version tracking, update checks, and backup/recovery for core, plugins, and themes
 - **Migrator** — file-based database migrations with locking, transactional execution, and batch rollbacks
 - **AuthZ** — centralized authorization service (role-based permissions, ownership checks, `can:permission` middleware)
+- **Telemetry** — anonymous, opt-out daily heartbeat used to count active installations (see [Configuration](configuration#telemetry))
 
 All managers are instantiated in `index.php` (after the bootstrap) and are fully integrated into the routing layer and admin panel. The `Migrator` is also used by the CLI (`bb.php`).
 
@@ -190,6 +191,7 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 │   ├── ThemeManager.php   # Theme discovery, activation
 │   ├── UpdateManager.php  # Version tracking, updates, backup/recovery
 │   ├── AuthZ.php          # Authorization service (role-based permissions, ownership)
+│   ├── Telemetry.php      # Anonymous opt-out active-installation heartbeat
 │   └── repo_install.php   # Repository-based install/upgrade helpers
 ├── src/                   # Application core (no framework)
 │   ├── bootstrap.php      # install check, config, i18n, PSR-4 autoloader
@@ -222,7 +224,7 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 │   │   ├── users.php      # login, register, profile, password reset
 │   │   ├── content.php    # categories, search, download
 │   │   └── misc.php       # markdown preview, mention autocomplete
-├── tests/                 # Zero-dependency test suite (346 core test functions / 1242 assertions)
+├── tests/                 # Zero-dependency test suite (358 core test functions / 1305 assertions)
 │   ├── harness.php        # Test + TestSuite classes (the engine)
 │   ├── run.php            # CLI runner
 │   ├── DbQueryTest.php    # Query builder tests

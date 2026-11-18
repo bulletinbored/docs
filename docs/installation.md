@@ -10,8 +10,9 @@ From zero to working forum in under a minute.
 
 - A web server running **PHP 8.1+**
 - The **PDO** extension with either **SQLite** or **MySQL** driver
-- The **mbstring** extension — used for UTF-8 string handling (avatars, text helpers)
-- The **zip** extension (`ZipArchive`) — required to install or update plugins, themes, and language packs
+- The **mbstring** extension for UTF-8 string handling (avatars, text helpers)
+- The **json** and **fileinfo** extensions (`bb.php` checks both)
+- The **zip** extension (`ZipArchive`) to install or update plugin and theme packages. Language packs are JSON files and do not need `zip`.
 - A supported web server (see below)
 
 `curl` is optional: when it is missing, package downloads fall back to
@@ -41,7 +42,7 @@ Make sure Apache `mod_rewrite` is enabled for SEO-friendly URLs. The included `.
 
 ### Step 3: Set Write Permissions
 
-The `data/`, `uploads/`, and `uploads/avatars/` directories must be writable by the web server.
+The `data/`, `uploads/`, `uploads/avatars/`, and `uploads/private/` directories must be writable by the web server.
 
 ### Step 4: Run the Installer
 
@@ -51,20 +52,21 @@ Visit the site in your browser. If `config.json` is missing, the 3-step installe
 - **Step 2**: Set your site name, administrator account, and email
 - **Step 3**: Optionally install suggested plugins to make the installation more complete. The core ships only the basic forum features; you can install the suggested plugins now or add them later from the admin panel.
 
-The installer creates `config.json` and the database automatically.
+The installer creates `config.json` and the database automatically. The generated `config.json` is minimal: it does not include every 1.0 key, so add any optional keys you need from `config-sample.json` afterwards.
 
 If the database you select already contains forum data, the installer stops with a migration hint instead of silently reusing it (see [Moving an existing forum](#moving-an-existing-forum)).
 
 ### Step 5: Security Reminder
 
 The installer refuses to run once `config.json` exists, but you should still
-**delete the installer files** after installation completes:
+**delete the setup wizards** after installation completes:
 - `install.php`
 - `install2.php`
 - `install3.php`
-- `api/install.php`
 
-Leaving them in place is a security risk.
+Do not delete `api/install.php`: it is not an installer. It is the authenticated admin endpoint used to install plugins and themes from the catalog (`lib/AdminAuth.php`).
+
+Leaving the setup wizards in place is a security risk.
 
 The shipped server configs also block direct access to `config.json`,
 `config.php`, `bb.php` and `router.php`. If you customise your server
@@ -78,7 +80,7 @@ Log in with the administrator credentials you just created.
 
 Before putting the forum in front of real users:
 
-1. **Delete the installer files** — `install.php`, `install2.php`, `install3.php`, `api/install.php`. Once `config.json` exists they refuse to run, but removing them removes the attack surface entirely.
+1. **Delete the setup wizards** — `install.php`, `install2.php`, `install3.php`. Once `config.json` exists they refuse to run, but removing them removes the attack surface entirely. Keep `api/install.php`: it is the admin-only catalog endpoint protected by `lib/AdminAuth.php`.
 2. **Turn off error display** — set `display_errors = Off` and `expose_php = Off` in `php.ini` (the `doctor` command and the admin diagnostics page warn when they are on).
 3. **Serve over HTTPS** — set `force_https`/`cookie_secure` to `true` and configure the reverse proxy header if applicable (see above).
 4. **Make sure sensitive paths are blocked** — `data/`, `uploads/private/`, `config.json`, `bb.php` and `router.php` must all return `403`. The shipped `.htaccess`, `nginx.conf`, `web.config` and `router.php` already do this; if you customise them, keep the rules.
@@ -109,7 +111,7 @@ Edit the file and adjust:
 
 ### Step 3: Set Write Permissions
 
-The `data/`, `uploads`, and `uploads/avatars/` directories must be writable by the web server.
+The `data/`, `uploads`, `uploads/avatars/`, and `uploads/private/` directories must be writable by the web server.
 
 ### Step 4: Test and Reload Nginx
 
@@ -135,7 +137,7 @@ Download and install the [IIS URL Rewrite Module](https://www.iis.net/downloads/
 
 ### Step 3: Set Write Permissions
 
-Ensure the `data/`, `uploads/`, and `uploads/avatars/` directories are writable by the application pool identity.
+Ensure the `data/`, `uploads/`, `uploads/avatars/`, and `uploads/private/` directories are writable by the application pool identity.
 
 ### Step 4: Run the Installer
 

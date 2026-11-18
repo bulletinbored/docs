@@ -8,17 +8,17 @@ description: bulletinbored — minimal, extensible forum software with zero depe
 
 ## Why bulletinbored?
 
-- ⚡ **Zero Dependencies** — No Composer, no Docker, no Node.js. Just PHP 8.x with PDO. Upload the files and you're live.
+- ⚡ **Zero Dependencies** — No Composer, no Docker, no Node.js. Just PHP 8.1+ with PDO. Upload the files and you're live.
 - 🗄️ **SQLite & MySQL** — Choose your database. SQLite works out of the box; MySQL is supported via `config.json`.
 - 🔌 **Plugin System** — Extend functionality with plugins. Hooks, custom routes, middleware, dependencies, and settings API.
 - 🎨 **Theme System** — Themes work like plugins: create a folder with a `style.css` and change the forum's look.
 - 🔗 **SEO-Friendly URLs** — Clean URLs like `/thread/1-slug` and `/category/2-name` via rewrite rules.
-- 🛡️ **User Management** — Registration, profiles with avatars, roles, moderation, private messages, and notifications built in.
+- 🛡️ **User Management** — Registration, profiles with avatars, roles, moderation, and notifications built in. Private messaging is available through plugins.
 - 🔐 **Centralized Authorization** — Role-based permissions with `AuthZ`, ownership-aware checks, and `can:*` middleware. No `is_admin()` bypasses.
 - 🌐 **Localization** — Multilingual support via JSON translation files (EN ships with the core; add more under `lang/`).
 - 🔄 **Auto Updates** — Update Manager with preflight checks, backup/restore, and GitHub Releases integration.
 - 🖥️ **Admin Panel** — Full dashboard: categories, users, moderation, settings, plugins, themes, catalog, updates.
-- 🧪 **Zero-dependency Testing** — 1305 assertions covering auth, content, migrations, plugins, renderer, and security.
+- 🧪 **Zero-dependency Testing** — About 1,870 assertions covering auth, content, migrations, plugins, renderer, and security.
 
 ## Repository
 
@@ -27,9 +27,9 @@ description: bulletinbored — minimal, extensible forum software with zero depe
 
 ## Quick Start
 
-1. Upload all files to a PHP-enabled web server (PHP 8.x, PDO/SQLite or PDO/MySQL extension)
+1. Upload all files to a PHP-enabled web server (PHP 8.1+, PDO/SQLite or PDO/MySQL extension)
 2. Ensure Apache `mod_rewrite` is enabled (for SEO-friendly URLs)
-3. Ensure the `data/`, `uploads/`, and `uploads/avatars/` directories are writable by the web server
+3. Ensure the `data/`, `uploads/`, `uploads/avatars/`, and `uploads/private/` directories are writable by the web server
 4. Visit the site in your browser — the 3-step installer starts automatically
 
 See [Installation](installation) for the full guide.

@@ -25,6 +25,8 @@ php bb.php <command> [options]
 | `plugin:enable <name>` | Enable a plugin |
 | `plugin:disable <name>` | Disable a plugin |
 | `cache:flush` | Clear cache and session files |
+| `ratelimit:stats` | Show rate-limit buckets, sizes, ages and top offenders |
+| `ratelimit:gc [seconds]` | Remove expired rate-limit buckets (default 86400s, minimum 60s) |
 | `doctor` | Run system diagnostics |
 | `help` | Show help |
 
@@ -49,24 +51,33 @@ php bb.php plugin:enable hellobored
 # Flush caches
 php bb.php cache:flush
 
+# Show rate-limit buckets
+php bb.php ratelimit:stats
+
+# Remove buckets idle for more than one day (the default)
+php bb.php ratelimit:gc
+php bb.php ratelimit:gc 3600
+
 # Run diagnostics
 php bb.php doctor
 ```
 
-> **Note**: the CLI requires a `config.json` file to be present in the forum root. If it is missing, the CLI exits with an error.
+> **Note**: the CLI reads `config.json` from the forum root. If it is missing, a legacy `config.php` in the same directory is accepted; the CLI exits with an error only when neither file exists.
 
 Example output of `php bb.php migrate:status`:
 
 ```
-+--------------------------------+--------+-------+---------------------+
-| Migration                      | Source | Batch | Ran At              |
-+--------------------------------+--------+-------+---------------------+
-| core:20260829_initial_schema   | core   | 1     | 2026-08-29 14:40:01 |
-| core:20260831_upgrade_05x      | core   | 2     | 2026-08-31 10:00:00 |
-| myplugin:20260901_create_tags   | myplugin | 2   | 2026-09-01 10:00:00 |
-| myplugin:20260902_add_custom    | myplugin | —   | pending             |
-+--------------------------------+--------+-------+---------------------+
++--------------------------------+----------+---------+-------+
+| Migration                      | Source   | Status  | Batch |
++--------------------------------+----------+---------+-------+
+| core:20260829_initial_schema   | core     | Ran     | 1     |
+| core:20260831_upgrade_05x      | core     | Ran     | 2     |
+| myplugin:20260901_create_tags  | myplugin | Ran     | 2     |
+| myplugin:20260902_add_custom   | myplugin | Pending | -     |
++--------------------------------+----------+---------+-------+
 ```
+
+The four columns are `Migration | Source | Status | Batch`. There is no `Ran At` column in the CLI output; the timestamp is stored in the `migrations` table but not printed.
 
 ## Migration System (`lib/Migrator.php`)
 
@@ -77,8 +88,34 @@ Example output of `php bb.php migrate:status`:
 3. Migration IDs are **namespaced**: `core:filename` for core, `pluginname:filename` for plugins
 4. Applied migrations are tracked in the `migrations` table
 5. Migrations run in batches — rollback reverses the last batch
-6. **File-based locking** prevents concurrent migration runs
+6. **File-based locking** is implemented by `Migrator::migrate()` and `Migrator::rollback()`, which take an exclusive lock on `data/.migration_lock`. The CLI `migrate` command does not call `migrate()`: `bb.php` calls `getPending()` and `runUp()` directly, so that path does no locking and no interrupted-migration policy check. Use the CLI as a single-process tool, or call `$migrator->migrate()` from code when concurrent runs are possible.
 7. **Transactions** wrap a migration only when the driver supports transactional DDL (SQLite). MySQL DDL is **not** transactional, so a migration that issues several `ALTER TABLE` statements is not automatically atomic on MySQL: each migration must clean up after itself. The core foreign-key migration does this by dropping any constraint it created if a later `ALTER` fails, and by skipping constraints that already exist (so a re-run completes a previous partial run). A failed migration is never recorded as applied.
+
+### Interrupted migration recovery
+
+`ensureMigrationsTable()` creates both `migrations` and `migration_progress`. Before `up()` runs, the migration is announced in `migration_progress`; the row is cleared when the migration completes. A leftover row means the migration started but did not finish, which is the normal outcome of a failed multi-statement DDL migration on MySQL/MariaDB.
+
+```php
+// List migrations that started but never completed
+$migrator->getInterruptedMigrations(); // name, batch, started_at, error
+
+// Schema was repaired by hand: record the migration as applied without re-running up()
+$migrator->recoverInterrupted($name, $batch);
+
+// Discard the marker so the migration runs again
+$migrator->forgetInterrupted($name);
+```
+
+`Migrator::migrate()` applies a retry policy. Core migrations are written to be idempotent (`CREATE TABLE IF NOT EXISTS`, guarded `ALTER`s), so an interrupted `core:*` migration is retried automatically. An interrupted plugin migration is retried only when its class implements `isIdempotent()` and returns true:
+
+```php
+public function isIdempotent(): bool
+{
+    return true;
+}
+```
+
+Otherwise `migrate()` refuses to retry it and tells the operator to repair the schema and call `recoverInterrupted()`, or call `forgetInterrupted()` before a deliberate retry. Because the CLI `migrate` command bypasses `migrate()`, it also bypasses this policy.
 
 ### Migration Contract
 

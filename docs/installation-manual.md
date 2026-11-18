@@ -8,15 +8,18 @@ If you prefer to configure `config.json` yourself instead of using the web insta
 
 See [Configuration](configuration) for the full list of options.
 
+`config-sample.json` contains the literal `__DIR__/data/database.sqlite` as `db_path`, but the runtime does not expand `__DIR__`. Replace it with a real absolute path to the SQLite file. The web installer does this for you: it resolves its default path to the actual server path and writes that value to `config.json`.
+
 ```json
 // config.json
 {
     "db_driver": "sqlite",
-    "db_path": "__DIR__/data/database.sqlite",
+    "db_path": "/var/www/bulletinbored/data/database.sqlite",
     "site_name": "bulletinbored",
     "admin_user": "admin",
-    "admin_pass": "changeme123",
     "theme": "freshbored",
     "base_url": ""
 }
 ```
+
+`admin_pass` is optional here. It is read only on the first request, when no admin user exists yet. If you omit it, a temporary password is generated and written to the PHP error log with a `CHANGE THIS IMMEDIATELY` note, so set a strong value or check the log before logging in. `config.json` is hardened to mode `0600` by the application after boot.

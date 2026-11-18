@@ -16,20 +16,18 @@ bulletinbored is built for a **single trusted administrator** who installs plugi
 - **Attachment authorization.** `/download/{id}` verifies `can_view_thread()` before serving files. Attachments belonging to hidden/pending threads are protected by the same policy as the thread itself. Uploads are linked to threads via `thread_id` or indirectly via `post_id` (looking up the thread through the post). Orphan uploads (with no thread association) and uploads whose thread is not viewable return `404 Not Found` for **every** user, so their existence is not disclosed.
 - **Plugin dependency graph.** Circular dependencies are detected and rejected. Disabling a plugin recursively disables all plugins that depend on it.
 - **Core update aborts if backup fails.** The updater no longer proceeds without a safety net — if the backup step fails, the update is aborted.
-- **Application state centralized.** The `App` class replaces scattered `$GLOBALS` access, reducing hidden coupling and making the trust boundary easier to reason about.
-- **CSP tightened.** Scripts require a nonce. `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'` are enforced. Stylesheets are restricted to `style-src 'self'` plus the CDN allow-list; inline `style="…"` attributes are permitted via `style-src-attr 'unsafe-inline'` (needed for dynamic values like avatars and progress bars), while injected `<style>` blocks remain blocked. The fallback avatar is rendered as an inline `<svg>` and needs no inline style at all.
+- **Application state centralized where practical.** The `App` class is the primary container for config, PDO, AuthZ, i18n and the managers, but some legacy global access remains: the exception handler reads `$GLOBALS['config']` (`src/bootstrap.php:145`), `views/header.php` reads `$GLOBALS['config']` and `$GLOBALS['pluginManager']`, and `AuthZ` looks up the plugin permission hook through `global $pluginManager` (`lib/AuthZ.php:85`). This reduces, rather than eliminates, hidden coupling.
+- **CSP tightened.** Scripts and styles require a nonce (`script-src` and `style-src` both include `'nonce-{nonce}'`). `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'` are enforced. Stylesheets are otherwise restricted to `style-src 'self'` plus the CDN allow-list; inline `style="…"` attributes are permitted via `style-src-attr 'unsafe-inline'` (needed for dynamic values like avatars and progress bars), while injected `<style>` blocks remain blocked. The fallback avatar is rendered as an inline `<svg>` and needs no inline style at all.
 - **TrustedProxies IPv6 support.** The trusted proxy detection now supports IPv6 addresses and CIDR notation.
 - **`shell_exec()` removed.** Git detection in diagnostics and repo_install now uses `exec()` with return code checking instead of `shell_exec()`.
-- **Code modularized.** `helpers.php` fully split into `src/Helpers/` (Url, AuthHelpers, Upload, Mail, Notifications, Text, Avatar, Data). `posts.php` split into `posts-thread.php`, `posts-new.php`, `posts-edit.php`. All handlers use `App::getInstance()` instead of `global $pdo`. PluginManager and ThemeManager i18n now uses `App::getInstance()->i18n` instead of `$GLOBALS['i18n']`. Reduces file complexity and eliminates global state coupling.
+- **Code modularized.** `helpers.php` fully split into `src/Helpers/` (Url, AuthHelpers, Upload, Mail, Notifications, Text, Avatar, Data). `posts.php` split into `posts-thread.php`, `posts-new.php`, `posts-edit.php`. Handlers use `App::getInstance()` instead of `global $pdo`, and PluginManager and ThemeManager i18n uses `App::getInstance()->i18n`. This reduces file complexity and most global state coupling, though a few legacy globals remain (see the application state note above).
 - **Test coverage.** Regression tests verify: no `eval()` in source files, SSL verification never disabled, download requires thread access (functional tests for guest/moderator/user on hidden/pending/visible threads, orphan uploads, and post_id-based thread association). Syntax check test validates all source files via `php -l`.
-- **Global state fully eliminated.** Zero `$GLOBALS` in source code. All handlers use `App::getInstance()->pdo`. PluginManager and ThemeManager use `App::getInstance()->i18n`.
+- **No trust in raw user HTML.** The core renders **Markdown only**. `bb_parse_inline()` HTML-escapes all text before matching Markdown tokens (`src/markdown.php:30-34`), and `bb_parse_markdown()` only emits tags generated from recognised syntax, so pasted HTML is shown as literal text (`src/markdown.php:12-13`). `bb_render_content()` is the single rendering path; a plugin can replace it through the `render_content` hook (`src/markdown.php:195-219`). There is no `sanitize_html()` function and no raw-HTML sanitizer to configure. Output is served under a per-request nonce-based CSP.
 - **Query hardening.** `fetch_threads()` uses whitelist + placeholders for status filter instead of string interpolation.
-- **User content is sanitized.** HTML saved by the editor is filtered by `sanitize_html()`: scripts/styles are stripped, generic `div`/`span`, `id`, inline `style`, and arbitrary `data-*` attributes are removed, and event handlers (`on*`) are dropped. Output is served under a per-request nonce-based CSP. Social embeds (YouTube, Twitter/X, Instagram, Facebook) are permitted only from a fixed host allow-list.
-- **Installer files do not re-appear after a core update.** `applyCoreUpdate()` removes `install.php`, `install2.php`, `install3.php`, and `api/install.php` from a deployed root once the forum is installed (`config.json` present). On a fresh
-  install (no `config.json`) the scripts are kept so setup can run.
+- **Installer files do not re-appear after a core update.** `applyCoreUpdate()` removes only the setup wizards `install.php`, `install2.php`, and `install3.php` from a deployed root once the forum is installed (`config.json` present); on a fresh install (no `config.json`) they are kept so setup can run. `api/install.php` is deliberately **not** removed (`lib/UpdateManager.php:884-903`): it is a runtime admin endpoint for catalog installs. It boots without `src/bootstrap.php`, so it resolves the administrator against the database with `AdminAuth::connect()` / `AdminAuth::verifySession()`, requires a CSRF token, and is rate-limited to 20 requests per hour (`api/install.php:44-67`).
 - **CSRF tokens rotate on every successful validation.** Each POST request validates the token and immediately issues a new one, preventing replay attacks. Use `csrf_validate_request()` in POST handlers. All state-changing operations (including watch/unwatch/logout) use POST with CSRF protection.
 - **Input sanitization is centralized.** The `Bulletin\Request` class provides a single entry point for all user input (`get()`, `post()`, `input()`), ensuring consistent sanitization and eliminating the risk that a new handler forgets to escape input.
-- **Admin actions are audit-logged.** Every state-changing admin action (user create/update/delete/ban/suspend, role changes, category changes, thread moderation, plugin/theme management) is logged to `data/logs/security.log` with admin identity, IP, timestamp, and context.
+- **Most admin actions are audit-logged.** User create/update/delete/ban/unban/suspend/disconnect, role changes, category changes, thread moderation (approve/hide/delete/lock/sticky/move/copy), and plugin/theme management are logged to `data/logs/security.log` with admin identity, IP, timestamp, and context. Settings, SMTP, site image, catalog, and language changes are **not** currently written to the admin audit log (`src/actions/admin/settings.php`, `catalog.php`, `langs.php`).
 - **Secrets and CLI/dev files are never served.** `config.json`, `config.php`, `bb.php` and `router.php` are denied on Apache (`.htaccess`), Nginx (`nginx.conf`), IIS (`web.config`) and the PHP built-in server (`router.php`). The built-in server only serves allow-listed static asset extensions and blocks `data/` and `uploads/private/`.
 - **The installer is hardened.** All three steps enforce CSRF tokens, the re-run guard fails closed (a `config.json` with a `db_driver` is authoritative even if the DB is unreachable), and the SQLite `db_path` is confined to the application directory before any file/`mkdir()` is created. Failures are logged server-side, not echoed. It also **refuses to reuse an existing, populated database when no `config.json` is present**, so a "fresh" install can never silently present the previous forum's threads and users; the message explains how to migrate a forum instead.
 - **Rate limiting covers all mutations.** Beyond auth/posting, the file-based limiter throttles edit/delete, watch/unwatch, image and avatar uploads, profile edits, and every admin operation. Sensitive actions (authentication, account changes, destructive content operations and all admin actions) **fail closed**: if the bucket cannot be opened, the lock cannot be acquired, the stored data is corrupt, or the updated hit cannot be persisted, the request is denied rather than allowed. Only non-sensitive actions degrade open. Stale buckets (>24 h) are removed opportunistically so `data/ratelimit/` does not grow without bound.
@@ -71,7 +69,11 @@ Every catalog entry — first-party or third-party — is **reviewed by the bull
 |---|---|---|
 | `plugin_verify_files` | `true` | Reject plugin packages whose extracted files don't match `manifest.json` `files`. |
 | `theme_verify_files` | `true` | Same check for themes. |
-| `allow_catalog_only` | `false` | When `true`, only `official: true` catalog entries can be installed. |
+| `allow_catalog_only` | `true` | When `true`, only `official: true` catalog entries can be installed. The settings UI enables it by default too (`views/admin_settings.php:167`). |
+| `allow_prerelease_updates` | `false` | Offer prerelease core/extension updates. A prerelease may also follow the next prerelease. |
+| `hsts_max_age` | `31536000` | `Strict-Transport-Security` max-age in seconds, sent over HTTPS. `0` disables HSTS. |
+| `hsts_include_subdomains` | `false` | Add `includeSubDomains` to the HSTS header. Opt-in because it also binds every subdomain to HTTPS. |
+| `rate_limit_multiplier` | `1` | Global multiplier for the request allowance of every rate limit (`0.1` to `10`; clamps in `src/Security.php:183-193`). `1` keeps the documented limits. |
 | `trusted_proxies` | `["127.0.0.1", "::1"]` | List of trusted proxy IPs (supports CIDR notation). Only trust `X-Forwarded-*` headers from these IPs. |
 
 ## CSRF Protection
@@ -139,7 +141,7 @@ Permissions use `resource.action` notation (e.g., `posts.edit`, `threads.delete`
 | `threads.sticky` | Sticky/unsticky threads |
 | `threads.approve` | Approve pending threads |
 | `threads.move` | Move thread to another category |
-| `threads.split` / `threads.merge` | Split/merge threads |
+| `threads.split` / `threads.merge` / `threads.copy` | Split/merge/copy threads |
 | `posts.create` | Create replies |
 | `posts.edit` / `posts.edit_own` | Edit any / own post |
 | `posts.delete` / `posts.delete_own` | Delete any / own post |
@@ -150,6 +152,7 @@ Permissions use `resource.action` notation (e.g., `posts.edit`, `threads.delete`
 | `settings.manage` | Modify site settings |
 | `plugins.manage` | Plugin management |
 | `themes.manage` | Theme management |
+| `langs.manage` | Manage language files |
 
 ## Admin Audit Log
 
@@ -159,11 +162,11 @@ All state-changing admin actions are logged to `data/logs/security.log`:
 [2026-08-29T16:00:00+02:00] admin_user_ban ip=127.0.0.1 {"admin_id":1,"admin_user":"admin","target_id":42}
 ```
 
-Logged actions include: user create/update/delete/ban/unban/suspend, role create/update/delete, category create/update/delete, thread approve/delete/lock/sticky/move/copy, plugin enable/disable/delete, theme activate/delete, and settings changes.
+Logged actions include: user create/update/delete/ban/unban/suspend/disconnect, role create/update/delete, category create/update/delete, thread approve/hide/delete/lock/sticky/move/copy, plugin enable/disable/delete, and theme activate/delete. Settings, SMTP, site image, catalog, and language changes are not written to the admin audit log.
 
 ## Authentication Hardening
 
-- **Session lifecycle**: Sessions are regenerated on login. Privilege changes (role update) are reflected immediately in the session.
+- **Session lifecycle**: Sessions are regenerated on login. Role and status changes bump `users.session_version`, so the new privileges are **not** picked up by the existing session: the next `is_logged_in()` check invalidates it and the affected account must log in again (`src/actions/admin/users.php:82-97`).
 - **Token security**: Email verification and password reset tokens are stored as SHA-256 hashes (never raw). Tokens expire after 24 hours (email) or 1 hour (reset) and are single-use.
 - **Account enumeration prevention**: Login errors are generic ("Invalid credentials") — they don't reveal whether the username exists.
 - **CSRF protection**: Tokens rotate on every successful validation via `csrf_validate_request()`. Use `csrf_validate_request()` in all POST handlers.
@@ -187,12 +190,17 @@ Attachments in hidden/pending threads are now protected:
 
 `send_email()` validates email addresses with `FILTER_VALIDATE_EMAIL` and rejects any headers containing `\r` or `\n` (CRLF injection prevention).
 
-### Session Invalidation on Password Change
+### Session Invalidation
 
 - `session_version` column added to users table
-- `is_logged_in()` verifies session version matches
-- Password reset increments version, invalidating old sessions
-- **Legacy sessions** (created before migration) are also invalidated for security
+- `is_logged_in()` verifies the session version against the database and invalidates the session when it is missing, stale, or the user row no longer exists (deleted account) (`src/Helpers/AuthHelpers.php:22-72`)
+- Password reset increments the version, invalidating old sessions
+- A role or status change in the admin user editor increments the version (`src/actions/admin/users.php:82-97`)
+- Ban, unban, and suspend increment the version (`src/actions/admin/users.php`)
+- **Legacy sessions** (created before the `session_version` migration) are rejected because they have no stored version
+- `POST /logout-others` increments the current user's version and refreshes only this device, signing out every other device (`index.php:163`, `src/actions/users.php:213`)
+- `POST /admin/disconnect-user` increments another non-admin user's version without changing the account (`index.php:210`, `src/actions/admin/users.php:195`)
+- Deleted accounts are rejected on the next request (`src/Helpers/AuthHelpers.php:54-57`)
 
 ### Watch/Unwatch Hidden Thread Protection
 

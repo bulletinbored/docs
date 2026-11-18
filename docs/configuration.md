@@ -9,7 +9,8 @@ Edit `config.json` to customize your installation.
 ```json
 {
     "db_driver": "sqlite",
-    "db_path": "__DIR__/data/database.sqlite",
+    "db_path": "/var/www/bulletinbored/data/database.sqlite",
+    "sqlite_busy_timeout": 60000,
     "db_host": "localhost",
     "db_name": "forum",
     "db_user": "root",
@@ -17,7 +18,6 @@ Edit `config.json` to customize your installation.
 
     "site_name": "bulletinbored",
     "admin_user": "admin",
-    "admin_pass": "changeme123",
 
     "mail_from": "noreply@yourdomain.com",
     "mail_from_name": "bulletinbored",
@@ -30,14 +30,20 @@ Edit `config.json` to customize your installation.
 
     "base_url": "",
     "force_https": true,
+    "hsts_max_age": 31536000,
+    "hsts_include_subdomains": false,
     "cookie_secure": true,
     "email_notifications": true,
-    "version": "0.9.7",
+    "version": "1.0.0",
     "plugin_manifest": "__DIR__/data/plugins.json",
     "theme_manifest": "__DIR__/data/themes.json",
     "update_manifest": "__DIR__/data/updates.json",
-    "update_server": "",
-    "update_mirror": "",
+    "update_server": "https://github.com/bulletinbored/bulletinbored-core",
+    "update_mirror": "https://extend.bulletinbored.net",
+    "allow_prerelease_updates": false,
+    "allow_catalog_only": true,
+    "rate_limit_multiplier": 1,
+    "trusted_proxies": ["127.0.0.1", "::1"],
 
     "install_id": "",
     "telemetry": true,
@@ -45,13 +51,17 @@ Edit `config.json` to customize your installation.
 }
 ```
 
+`db_path` must be a real absolute path: the runtime does not expand `__DIR__`. When you use the web installer it resolves the path for you and writes the server path to `config.json`. The same applies to the `*_manifest` paths shown above.
+
 ## Version
 
-Do not hardcode the version; the application reads it from the `VERSION` file at the project root, e.g. `0.9.7`. See [Versioning](versioning) for how to manage releases.
+The application reads `version` from `config.json` at boot. Do not edit it by hand: the installer and the updater write it from the `VERSION` file. See [Versioning](versioning) for how to manage releases.
 
 ## Database
 
-SQLite requires no additional setup. The database file is created automatically in `data/database.sqlite`.
+SQLite requires no additional setup. The database file is created automatically at the path set in `db_path`.
+
+`sqlite_busy_timeout` is the lock wait in milliseconds for concurrent SQLite writers (`lib/BbPdo.php`). The sample uses `60000` (60 seconds); lowering it makes writers fail earlier with "database is locked". When omitted, the PDO driver default applies.
 
 ### MySQL
 
@@ -65,7 +75,7 @@ To use MySQL, set:
 "db_pass": ""
 ```
 
-Tables are created automatically on first access.
+The schema is migration-driven: `src/setup.php` runs pending migrations from `migrations/` on boot, and those migrations create the tables and seed defaults. See [CLI & Migrations](cli-migrations).
 
 ## Email
 
@@ -76,8 +86,17 @@ The forum uses PHP's `mail()` function by default. For SMTP support, set:
 "mail_host": "smtp.example.com",
 "mail_port": 587,
 "mail_username": "user@example.com",
-"mail_password": "secret"
+"mail_password": "secret",
+"mail_secure": "tls",
+"mail_timeout": 10,
+"mail_require_tls_for_auth": true
 ```
+
+| Key | Default | Effect |
+|---|---|---|
+| `mail_secure` | `""` | Encryption for SMTP: empty, `tls` (STARTTLS), or `ssl`. |
+| `mail_timeout` | `10` | Socket timeout in seconds (`src/Helpers/Mail.php`). |
+| `mail_require_tls_for_auth` | `false` | When `true`, refuse to send SMTP credentials over an unencrypted connection. |
 
 ## Notifications
 
@@ -127,6 +146,15 @@ it only on hosts without a valid certificate, or during local development:
 for HTTPS deployments. Behind a reverse proxy that terminates TLS, forward
 `X-Forwarded-Proto` (see [Installation](installation)).
 
+`hsts_max_age` (default `31536000` seconds) controls the `Strict-Transport-Security`
+max-age; set it to `0` to disable HSTS entirely. `hsts_include_subdomains`
+(default `false`) is opt-in and applies HSTS to every subdomain, so enable it
+only when all subdomains have valid certificates (`src/csp.php`).
+
+`trusted_proxies` (default `["127.0.0.1", "::1"]`) lists the proxy addresses
+whose `X-Forwarded-*` headers are trusted. Entries may be plain IPv4/IPv6
+addresses or CIDR ranges (`src/TrustedProxies.php`).
+
 ## Theme
 
 Set the active theme by folder name:
@@ -143,6 +171,17 @@ Configure the default language and available languages:
 "default_lang": "en",
 "available_langs": ["en", "it"]
 ```
+
+## Settings saved from the admin panel
+
+These keys are written to `config.json` by **Admin → Settings** (`src/actions/admin/settings.php`). They are absent from the sample and keep their fallback when missing:
+
+| Key | Default when absent | Effect |
+|---|---|---|
+| `attachments_enabled` | off | Enables file attachments in the new-thread form. |
+| `site_logo` | empty | URL or path of the header logo; also embedded in outgoing e-mail. |
+| `site_favicon` | empty | URL or path of the favicon. |
+| `notify_admin_email` | empty | Address that receives admin notification e-mails. |
 
 ## Rate Limiting (Security Hardening)
 
@@ -161,10 +200,16 @@ Sensitive actions are throttled by a dependency-free, file-based rate limiter (`
 | `watch` / `unwatch` | 30 | 3600s (1 h) | user id |
 | `upload_image` / `editbored_upload` | 20 | 3600s (1 h) | user id |
 | `edit_profile` / `remove_avatar` | 20 | 3600s (1 h) | user id |
+| `logout_others` | 5 | 3600s (1 h) | user id |
+| `admin_disconnect_user` | 20 | 3600s (1 h) | user id |
 | Admin actions (settings, catalog, categories, languages, moderation, plugins, themes, updates, roles, users) | 10–30 | 3600s (1 h) | user id |
 
-The `data/ratelimit/` directory is created automatically. No configuration is
-required; the limits are hard-coded in the action handlers. Sensitive actions
+These per-action limits are scaled by `rate_limit_multiplier` (default `1`),
+which lets an administrator tighten or relax every limit at once without
+editing handlers. The value is clamped between `0.1` and `10`, and the
+resulting maximum is at least `1` (`src/Security.php`).
+
+The `data/ratelimit/` directory is created automatically. Sensitive actions
 fail closed (denied) when the limiter cannot open the bucket, acquire its lock,
 parse it, or persist the updated hit (disk full / read-only file). Buckets older
 than 24 hours are removed opportunistically by `rate_limit_gc()` so the
@@ -177,14 +222,14 @@ bulletinbored trusts its administrator to install code (plugins, themes, languag
 ```json
 "plugin_verify_files": true,
 "theme_verify_files": true,
-"allow_catalog_only": false
+"allow_catalog_only": true
 ```
 
 | Key | Default | Effect |
 |---|---|---|
 | `plugin_verify_files` | `true` | When installing a plugin from a ZIP, reject the package if its extracted files do not match the `files` list declared in `manifest.json` (catches dropped-in/backdoor files). Plugins without a `files` key are skipped. |
 | `theme_verify_files` | `true` | Same integrity check for themes. |
-| `allow_catalog_only` | `false` | When `true`, only catalog entries marked `official: true` may be installed. This narrows the trusted source surface but does **not** pre-approve updates — a curated source can still publish a new version at any time (see [Security Model](security)). |
+| `allow_catalog_only` | `true` | When `true`, only catalog entries marked `official: true` may be installed. This narrows the trusted source surface but does **not** pre-approve updates, since a curated source can still publish a new version at any time (see [Security Model](security)). |
 
 Disabling a `*_verify_files` check weakens tamper detection and is not recommended
 on a production forum with untrusted users.
@@ -194,12 +239,16 @@ on a production forum with untrusted users.
 Configure an update server if you want automatic update checking:
 
 ```json
-"update_server": "https://github.com/bulletinbored/bulletinbored-core"
+"update_server": "https://github.com/bulletinbored/bulletinbored-core",
+"update_mirror": "https://extend.bulletinbored.net",
+"allow_prerelease_updates": false
 ```
 
-If `update_server` points to a GitHub repository, the Update Manager uses the GitHub Releases API automatically and no additional server setup is required.
+If `update_server` points to a GitHub repository, the Update Manager uses the GitHub Releases API automatically and no additional server setup is required. GitHub's `/releases/latest` endpoint skips prereleases.
 
-For non-GitHub servers, the server must expose a `versions.json` file. See [Update Manager](managers#update-manager) for details.
+`versions.json` is fetched from `update_mirror`, not from `update_server` (`lib/UpdateFetcher.php`). For non-GitHub servers, point `update_mirror` at the server that exposes `versions.json`. See [Update Manager](managers#update-manager) for details.
+
+Set `allow_prerelease_updates` to `true` to be offered prereleases such as `1.0.0-rc.1`. A stable installation never receives one unless this key is enabled; an installation already running a prerelease may follow the next prerelease. See [Versioning](versioning).
 
 ### GitHub token
 

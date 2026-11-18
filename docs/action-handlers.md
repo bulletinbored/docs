@@ -4,7 +4,7 @@ description: Inventory of the core request handlers, their modules and the prote
 ---
 # Action Handlers
 
-**Updated:** 2026-09-25 (version 0.9.0)
+**Updated:** 2026-11-18 (version 1.0.0)
 
 Core request handlers live in `src/actions/`. The top-level dispatcher files
 (`posts.php`, `users.php`, `content.php`, `misc.php`, `admin.php`) are thin and
@@ -15,21 +15,21 @@ the router sends the response.
 | Module | Lines | Responsibility |
 |--------|-------|----------------|
 | `src/actions/admin.php` | ~124 | Admin dispatcher + dashboard. |
-| `src/actions/admin/settings.php` | ~145 | Site settings, SMTP, image upload. |
+| `src/actions/admin/settings.php` | ~147 | Site settings, SMTP, image upload. |
 | `src/actions/admin/moderation.php` | ~225 | Moderate, front-moderate, split, merge. |
-| `src/actions/admin/users.php` | ~212 | Roles, user CRUD, ban/unban/suspend. |
+| `src/actions/admin/users.php` | ~269 | Roles, user CRUD, ban/unban/suspend, disconnect. |
 | `src/actions/admin/categories.php` | ~75 | Category CRUD and ordering. |
 | `src/actions/admin/langs.php` | ~190 | Language management. |
-| `src/actions/admin/plugins.php` | ~100 | Plugin management. |
-| `src/actions/admin/themes.php` | ~89 | Theme management. |
+| `src/actions/admin/plugins.php` | ~96 | Plugin management. |
+| `src/actions/admin/themes.php` | ~85 | Theme management. |
 | `src/actions/admin/catalog.php` | ~127 | Extension catalog. |
-| `src/actions/admin/updates.php` | ~101 | Core/extension updates. |
-| `src/actions/admin/diagnostics.php` | ~82 | System diagnostics (install requirements + PHP settings). |
+| `src/actions/admin/updates.php` | ~168 | Core/extension updates. |
+| `src/actions/admin/diagnostics.php` | ~74 | System diagnostics (install requirements + PHP settings). |
 | `src/actions/posts.php` | ~39 | Posts dispatcher. |
-| `src/actions/posts-thread.php` | ~230 | Thread view, watch/unwatch, image upload. |
+| `src/actions/posts-thread.php` | ~239 | Thread view, watch/unwatch, image upload. |
 | `src/actions/posts-new.php` | ~89 | New thread creation. |
 | `src/actions/posts-edit.php` | ~284 | Reply, edit/delete post, edit/delete thread. |
-| `src/actions/users.php` | ~471 | Login, register, verify, profile, password reset. |
+| `src/actions/users.php` | ~542 | Login, register, verify, profile, password reset, logout-others. |
 | `src/actions/content.php` | ~101 | Search, category view, download. |
 | `src/actions/misc.php` | ~41 | Markdown preview, mention autocomplete. |
 
@@ -55,7 +55,8 @@ the router sends the response.
 |----------|-----------|
 | `handle_login()` | `(string $method): Response` |
 | `handle_register()` | `(string $method): Response` |
-| `handle_logout()` | `(): Response` |
+| `handle_logout()` | `(): Response|bool` |
+| `handle_logout_others_post()` | `(): Response|bool` |
 | `handle_verify_email()` | `(): Response` |
 | `handle_profile()` | `(array $params = []): Response` |
 | `handle_edit_profile()` | `(string $method): Response` |
@@ -78,7 +79,7 @@ the router sends the response.
 | Function | Signature |
 |----------|-----------|
 | `handle_admin_dashboard()` | `(): Response` |
-| `handle_admin_settings_get()` / `handle_admin_settings_post()` | `(): Response` / `(): ?string` |
+| `handle_admin_settings_get()` / `handle_admin_settings_post()` | `(): \Bulletin\Response|bool` / `(): ?string` |
 | `handle_admin_smtp_get()` / `handle_admin_smtp_post()` | `(): Response` / `(): ?string` |
 | `handle_admin_upload_site_image()` / `handle_admin_get_images()` | `(): Response` |
 | `handle_admin_moderation_get()` | `(): Response` |
@@ -86,9 +87,10 @@ the router sends the response.
 | `handle_frontend_moderate_post()` | `(): Response` |
 | `handle_split_thread_post()` / `handle_merge_thread_post()` | `(): Response` |
 | `handle_admin_roles_get()` / `handle_admin_roles_action_post()` | `(): Response` |
-| `handle_admin_users_get()` / `handle_admin_user_edit()` | `(): Response` / `(string $method, array $params = []): Response` |
-| `handle_admin_create_user_post()` / `handle_delete_user_post()` | `(): Response` |
-| `handle_admin_ban_user_post()` / `handle_unban_user_post()` / `handle_suspend_user_post()` | `(): Response` |
+| `handle_admin_users_get()` / `handle_admin_user_edit()` | `(): Response|bool` / `(string $method, array $params = []): Response|bool` |
+| `handle_admin_create_user_post()` / `handle_delete_user_post()` | `(): Response|bool` |
+| `handle_admin_ban_user_post()` / `handle_unban_user_post()` / `handle_suspend_user_post()` | `(): Response|bool` |
+| `handle_admin_disconnect_user_post()` | `(): \Bulletin\Response|bool` |
 | `handle_admin_categories()` / `handle_delete_category_post()` / `handle_update_category_order_post()` | `(): Response` |
 | `handle_admin_langs()` | `(string $method)` |
 | `handle_admin_diagnostics_get()` | `(): Response` |

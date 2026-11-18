@@ -55,8 +55,8 @@ the router sends the response.
 |----------|-----------|
 | `handle_login()` | `(string $method): Response` |
 | `handle_register()` | `(string $method): Response` |
-| `handle_logout()` | `(): Response|bool` |
-| `handle_logout_others_post()` | `(): Response|bool` |
+| `handle_logout()` | `(): Response\|bool` |
+| `handle_logout_others_post()` | `(): Response\|bool` |
 | `handle_verify_email()` | `(): Response` |
 | `handle_profile()` | `(array $params = []): Response` |
 | `handle_edit_profile()` | `(string $method): Response` |
@@ -79,7 +79,7 @@ the router sends the response.
 | Function | Signature |
 |----------|-----------|
 | `handle_admin_dashboard()` | `(): Response` |
-| `handle_admin_settings_get()` / `handle_admin_settings_post()` | `(): \Bulletin\Response|bool` / `(): ?string` |
+| `handle_admin_settings_get()` / `handle_admin_settings_post()` | `(): \Bulletin\Response\|bool` / `(): ?string` |
 | `handle_admin_smtp_get()` / `handle_admin_smtp_post()` | `(): Response` / `(): ?string` |
 | `handle_admin_upload_site_image()` / `handle_admin_get_images()` | `(): Response` |
 | `handle_admin_moderation_get()` | `(): Response` |
@@ -87,10 +87,10 @@ the router sends the response.
 | `handle_frontend_moderate_post()` | `(): Response` |
 | `handle_split_thread_post()` / `handle_merge_thread_post()` | `(): Response` |
 | `handle_admin_roles_get()` / `handle_admin_roles_action_post()` | `(): Response` |
-| `handle_admin_users_get()` / `handle_admin_user_edit()` | `(): Response|bool` / `(string $method, array $params = []): Response|bool` |
-| `handle_admin_create_user_post()` / `handle_delete_user_post()` | `(): Response|bool` |
-| `handle_admin_ban_user_post()` / `handle_unban_user_post()` / `handle_suspend_user_post()` | `(): Response|bool` |
-| `handle_admin_disconnect_user_post()` | `(): \Bulletin\Response|bool` |
+| `handle_admin_users_get()` / `handle_admin_user_edit()` | `(): Response\|bool` / `(string $method, array $params = []): Response\|bool` |
+| `handle_admin_create_user_post()` / `handle_delete_user_post()` | `(): Response\|bool` |
+| `handle_admin_ban_user_post()` / `handle_unban_user_post()` / `handle_suspend_user_post()` | `(): Response\|bool` |
+| `handle_admin_disconnect_user_post()` | `(): \Bulletin\Response\|bool` |
 | `handle_admin_categories()` / `handle_delete_category_post()` / `handle_update_category_order_post()` | `(): Response` |
 | `handle_admin_langs()` | `(string $method)` |
 | `handle_admin_diagnostics_get()` | `(): Response` |
@@ -113,7 +113,8 @@ rate-limit actions and windows are listed in
 | Upload image / edit profile / remove avatar | yes | auth | yes | self |
 | Watch / unwatch | yes | auth | yes | self |
 | Admin settings / user / category / plugin / theme / update actions | yes | admin | yes | `admin` middleware |
-| Moderate / split / merge | yes | auth | yes | `can:moderation.manage` |
+| `/admin/moderate`, `/admin/front-moderate`, `/admin/split-thread`, `/admin/merge-thread` | yes | admin | yes | `admin` middleware (`index.php:181-184`) |
+| `POST /moderate/{id}` | yes | auth | yes | `can:moderation.manage` (`index.php:214-216`) |
 
 ## History
 

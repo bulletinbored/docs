@@ -9,11 +9,11 @@ description: Understand the MVC structure, manager system, and directory layout.
 - **PluginManager** — handles plugin discovery, enable/disable, hook registration/execution (actions, filters, checks)
 - **ThemeManager** — handles theme discovery, activation, and CSS URL/path resolution
 - **UpdateManager** — handles version tracking, update checks, and backup/recovery for core, plugins, and themes
-- **Migrator** — file-based database migrations with locking, transactional execution, and batch rollbacks
+- **Migrator** — file-based database migrations with locking, transactional execution, batch rollbacks and interrupted-migration recovery (`migration_progress`, `getInterruptedMigrations()`, `recoverInterrupted()`, `forgetInterrupted()`, `isIdempotent()` retry policy)
 - **AuthZ** — centralized authorization service (role-based permissions, ownership checks, `can:permission` middleware)
 - **Telemetry** — anonymous, opt-out daily heartbeat used to count active installations (see [Configuration](configuration#telemetry))
 
-All managers are instantiated in `index.php` (after the bootstrap) and are fully integrated into the routing layer and admin panel. The `Migrator` is also used by the CLI (`bb.php`).
+Most managers are instantiated in `index.php` (after the bootstrap) and are integrated into the routing layer and admin panel. The `Migrator` is instantiated in `src/setup.php` during database initialization and is also used by the CLI (`bb.php`).
 
 ## Data Layer (`lib/DbQuery.php`)
 
@@ -29,7 +29,7 @@ $db->table('users')->where('status', 'banned')->delete();
 $page = $db->table('threads')->where('category_id', 5)->paginate(15, $page);
 ```
 
-Supports SQLite and MySQL transparently via BbPdo. All core data operations use this layer.
+Supports SQLite and MySQL transparently via BbPdo. Many core data operations use this layer, but it is not the only path: several action handlers, security helpers and migration/update code still issue direct PDO queries and prepared statements.
 
 ## Rendering Layer (`src/Renderer.php`)
 
@@ -178,18 +178,30 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 ├── nginx.conf             # Nginx server block with rewrite rules and deny rules
 ├── web.config             # IIS URL Rewrite rules and deny rules
 ├── VERSION                # Single-source-of-truth version file
+├── install.php            # Web installer (removed by a core update once config.json exists)
+├── install2.php           # Web installer step 2
+├── install3.php           # Web installer step 3
+├── api/
+│   └── install.php        # Runtime admin endpoint for catalog plugin/theme installs (kept after updates)
+├── tools/
+│   └── build-release.php  # Release archive builder
 ├── migrations/            # File-based database migrations (namespaced IDs: core:, plugin:)
 │   └── YYYYMMDD_description.php
 ├── lib/                   # Backend managers and data layer
 │   ├── BbPdo.php          # PDO wrapper with SQLite/MySQL SQL normalization
 │   ├── DbQuery.php        # Lightweight query builder (table/where/first/insert/update/delete)
-│   ├── Migrator.php       # File-based migration engine (up/down, batches, rollback)
+│   ├── Migrator.php       # File-based migration engine (up/down, batches, rollback, interrupted recovery)
 │   ├── PluginManager.php  # Plugin manager facade (composed from the traits below)
 │   ├── PluginManager/     # Cohesive traits: PluginHooks, PluginManifest, PluginDependencies, PluginPackages
 │   ├── PluginDiscovery.php # Plugin folder/legacy-file discovery and manifest parsing
 │   ├── PackageInstaller.php # ZIP extraction (Zip Slip safe), flattening, integrity checks
 │   ├── ThemeManager.php   # Theme discovery, activation
 │   ├── UpdateManager.php  # Version tracking, updates, backup/recovery
+│   ├── UpdateFetcher.php  # HTTP requests, caching, remote version fetching
+│   ├── UpdateBackup.php   # Core backup and restore, recursive copy/delete, backup manifests
+│   ├── AtomicFile.php     # Verified atomic writes for config and update metadata
+│   ├── AdminAuth.php      # Database-backed administrator check for runtime endpoints
+│   ├── Version.php        # Version parsing, prerelease detection, constraint helpers
 │   ├── AuthZ.php          # Authorization service (role-based permissions, ownership)
 │   ├── Telemetry.php      # Anonymous opt-out active-installation heartbeat
 │   └── repo_install.php   # Repository-based install/upgrade helpers
@@ -200,7 +212,7 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 │   ├── Errors.php         # Typed HTTP exceptions
 │   ├── TrustedProxies.php # Trusted proxy detection (IPv4/IPv6/CIDR)
 │   ├── session_setup.php  # Session configuration and hardening
-│   ├── App.php            # ApplicationContext — centralized state (replaces $GLOBALS)
+│   ├── App.php            # App: centralized application state (replaces $GLOBALS)
 │   ├── helpers.php        # loads helper modules from src/Helpers/
 │   ├── Helpers/           # modular helper functions
 │   │   ├── Url.php        # URL generation, slugify, current_route_action
@@ -224,7 +236,7 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 │   │   ├── users.php      # login, register, profile, password reset
 │   │   ├── content.php    # categories, search, download
 │   │   └── misc.php       # markdown preview, mention autocomplete
-├── tests/                 # Zero-dependency test suite (358 core test functions / 1305 assertions)
+├── tests/                 # Zero-dependency test suite (517 tests total, about 470 core)
 │   ├── harness.php        # Test + TestSuite classes (the engine)
 │   ├── run.php            # CLI runner
 │   ├── DbQueryTest.php    # Query builder tests
@@ -232,9 +244,16 @@ $router->get('/post/{slug:[a-z0-9-]+}', $handler); // custom regex
 │   ├── PluginManagerTest.php # Hook system + manifest validation tests
 │   ├── AuthTest.php       # Auth, permissions, CSRF, AuthZ tests
 │   ├── MigratorTest.php   # Migration engine tests
+│   ├── MigrationRecoveryTest.php # Interrupted migration recovery and retry policy
+│   ├── MySqlDialectTest.php # MySQL dialect behavior
 │   ├── SecurityTest.php   # CSRF rotation, Request, audit log, trusted proxies tests
 │   ├── ResponseTest.php   # Response object + typed Request tests
 │   ├── MarkdownTest.php   # Markdown security tests (XSS, URL schemes)
+│   ├── AtomicFileTest.php # Atomic metadata writes
+│   ├── UpdateBackupTest.php # Backup integrity and restore
+│   ├── PrereleasePolicyTest.php # Prerelease update policy
+│   ├── CoreZipUpdateTest.php # Core ZIP update pipeline
+│   ├── UpgradeCompatibilityTest.php # Upgrade path compatibility
 │   └── PluginRouterTest.php # Plugin route/middleware registration tests
 ├── views/                 # Template files
 │   ├── header.php         # Shared frontend header/footer (loads theme CSS)
@@ -275,6 +294,6 @@ Plugins are PHP files in `plugins/` that define an `{name}_init()` function:
 
 - `$pluginManager->addHook('event', $callback)` — register a hook
 - `$pluginManager->runHook('event', ...$args)` — fire a hook
-- Plugins are auto-loaded on every request
+- Only enabled plugins are loaded on each request (`PluginManager::loadEnabled()`); disabled plugins are skipped
 
 Example plugin in `plugins/hellobored/hellobored.php` demonstrates the pattern.

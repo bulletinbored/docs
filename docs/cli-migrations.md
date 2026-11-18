@@ -225,8 +225,8 @@ The `doctor` command runs a full system diagnostic, checking:
 
 - **PHP version** — requires 8.1+
 - **Extensions** — required (pdo, pdo_sqlite, json, mbstring, fileinfo) and optional (pdo_mysql, zip, curl, gd)
-- **Directory permissions** — verifies data, plugins, themes, migrations are writable
-- **Database** — connection status and table count
+- **Directory permissions**: verifies `data`, `data/cache`, `data/sessions`, `data/logs`, `data/uploads`, `plugins`, `themes` and `migrations` are writable
+- **Database**: driver-aware connection check and table count (SQLite checks the database file; MySQL connects to the configured server). Table counts use `sqlite_master` on SQLite and `information_schema.TABLES` on MySQL
 - **Security** — display_errors, expose_php settings
 
 ```
@@ -243,6 +243,9 @@ The `doctor` command runs a full system diagnostic, checking:
 Directory permissions:
   ✓ data: writable
   ✓ data/cache: writable
+  ✓ data/sessions: writable
+  ✓ data/logs: writable
+  ✓ data/uploads: writable
   ✓ plugins: writable
   ✓ themes: writable
   ✓ migrations: writable
@@ -257,6 +260,8 @@ Security:
 
 ✓ All checks passed!
 ```
+
+With `db_driver` set to `mysql`, the database section reports `Driver: mysql (connected)` and counts tables through `information_schema` instead of `sqlite_master`.
 
 ## Custom CLI Commands (Plugin API)
 
@@ -347,6 +352,9 @@ bulletinbored/
 ├── lib/
 │   └── Migrator.php          # Migration engine (supports plugin paths)
 └── tests/
-    ├── MigratorTest.php      # Migration tests
-    └── E2eFlowTest.php       # End-to-end flow tests
+    ├── MigratorTest.php            # Migration engine tests
+    ├── MigrationRecoveryTest.php   # migration_progress, retry policy, recovery
+    ├── MySqlDialectTest.php        # MySQL-specific SQL and driver behavior
+    ├── UpgradeCompatibilityTest.php # Upgrade path compatibility
+    └── E2eFlowTest.php             # End-to-end flow tests
 ```

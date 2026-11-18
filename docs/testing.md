@@ -47,50 +47,77 @@ php tests/run.php --list
 # Source coverage report (line coverage with Xdebug/PCOV, otherwise loaded files)
 php tests/run.php --coverage
 
+# Fail the run when overall line coverage is below 60%
+php tests/run.php --coverage --min-coverage=60
+
+# Fail the run when a critical area is below 70%
+php tests/run.php --coverage --min-area-coverage=70
+
 # Enable the HTTP integration tests explicitly (auto-enabled on non-Windows)
 BB_HTTP_TESTS=1 php tests/run.php BootstrapIntegration
 ```
+
+`--min-coverage=N` and `--min-area-coverage=N` also enable coverage. They use Xdebug or PCOV when available; without a coverage driver they print a warning instead of failing.
 
 ## Test Structure
 
 ```
 tests/
 ├── harness.php                 # Test + TestSuite classes (the engine)
-├── bootstrap.php               # Test environment bootstrap (temp dirs, in-memory DB, test mode)
-├── run.php                     # CLI runner (--verbose, --list, --coverage)
+├── bootstrap.php               # Test environment bootstrap (temp dirs, file-backed SQLite database, test mode)
+├── run.php                     # CLI runner (--verbose, --list, --coverage, --min-coverage, --min-area-coverage)
+├── ApiInstallAuthorizationTest.php # api/install.php authorization
+├── AtomicFileTest.php          # Atomic metadata writes
+├── AuthHardeningTest.php       # Auth hardening tests
+├── AuthTest.php                # Auth, permissions, CSRF, AuthZ tests
 ├── BootstrapIntegrationTest.php # Real-bootstrap smoke test + optional HTTP header/route checks
+├── ContentConcurrencyTest.php  # Concurrent content writes
+├── ContentCrudTest.php         # Thread creation, replies, viewing, pagination
+├── ContentHardeningTest.php    # Content hardening tests
+├── CoreZipUpdateTest.php       # Core ZIP update pipeline
+├── DatabaseIntegrityTest.php   # Foreign keys, constraints, counters, soft-delete
+├── DatabaseMatrixTest.php      # Cross-database compatibility tests
+├── DbQuerySecurityTest.php     # Query builder security
 ├── DbQueryTest.php             # Query builder tests
 ├── E2eFlowTest.php             # End-to-end flow tests
-├── PluginManagerTest.php       # Hook system tests
-├── AuthTest.php                # Auth, permissions, CSRF, AuthZ tests
-├── MigratorTest.php            # Migration engine tests
-├── SecurityTest.php            # CSRF rotation, Request, audit log, trusted proxies
-├── ResponseTest.php             # Response object + typed Request tests
-├── MarkdownTest.php             # Markdown security tests
-├── PluginRouterTest.php         # Plugin route/middleware registration
-├── UpgradeTest.php              # Upgrade pipeline tests
-├── AuthHardeningTest.php        # Auth hardening tests
-├── ContentHardeningTest.php     # Content hardening tests
-├── RendererTest.php             # Template engine tests
-├── ModerationTest.php           # Moderation actions tests
-├── ModerationHandlerTest.php    # Moderation handler integration tests
-├── DatabaseMatrixTest.php       # Cross-database compatibility tests
-├── SecurityFixesTest.php        # Security fixes tests
-├── HelpersTest.php              # Helper module tests
-├── RegistrationTest.php         # Registration & login tests
-├── InstallerTest.php            # Installation process tests
-├── SecurityHardeningTest.php    # SQL injection, upload security, security headers
-├── ContentCrudTest.php          # Thread creation, replies, viewing, pagination
-├── E2eIntegrationTest.php       # End-to-end flow tests (user journeys)
-├── DatabaseIntegrityTest.php    # Foreign keys, constraints, counters, soft-delete
-├── SuggestedTest.php            # Edge case tests
-├── UpdateManagerTest.php        # Update system, ZIP validation, rollback
-├── PluginThemeTest.php          # Plugin and theme tests
+├── E2eIntegrationTest.php      # End-to-end flow tests (user journeys)
+├── EmailSecurityTest.php       # SMTP injection and email validation
 ├── EndpointAuthorizationTest.php # HTTP endpoint authorization matrix
-├── EmailSecurityTest.php        # SMTP injection and email validation
+├── HelpersTest.php             # Helper module tests
+├── InstallerTest.php           # Installation process tests
+├── MarkdownTest.php            # Markdown security tests
+├── MigrationRecoveryTest.php   # Interrupted migration recovery and retry policy
+├── MigratorTest.php            # Migration engine tests
+├── ModerationHandlerTest.php   # Moderation handler integration tests
+├── ModerationTest.php          # Moderation actions tests
+├── MySqlDialectTest.php        # MySQL dialect behavior
+├── PackageInstallerAdversarialTest.php # Adversarial package archives
+├── PluginManagerTest.php       # Hook system tests
+├── PluginRouterTest.php        # Plugin route/middleware registration
+├── PluginThemeTest.php         # Plugin and theme tests
+├── PrereleasePolicyTest.php    # Prerelease update policy
+├── RateLimitTest.php           # Rate limiting
+├── RawSqlPolicyTest.php        # Raw SQL policy
+├── RegistrationTest.php        # Registration & login tests
+├── ReleasePackageTest.php      # Release package contents
+├── RendererTest.php            # Template engine tests
+├── ResponseTest.php            # Response object + typed Request tests
+├── RouteAuthorizationTest.php  # Route authorization
+├── SecurityFixesTest.php       # Security fixes tests
+├── SecurityHardeningTest.php   # SQL injection, upload security, security headers
+├── SecurityTest.php            # CSRF rotation, Request, audit log, trusted proxies
+├── SessionFreshnessTest.php    # Session freshness
 ├── SessionSecurityTest.php     # Session invalidation tests
-├── UploadSecurityTest.php      # Upload security tests
+├── SessionVersionPolicyTest.php # Session version policy
+├── SmtpProtocolTest.php        # SMTP protocol
+├── SuggestedTest.php           # Edge case tests
 ├── TelemetryTest.php           # Anonymous install heartbeat (guards, payload, opt-out)
+├── UpdateBackupTest.php        # Backup integrity and restore
+├── UpdateFailureModeTest.php   # Update failure modes
+├── UpdateManagerTest.php       # Update system, ZIP validation, rollback
+├── UpgradeCompatibilityTest.php # Upgrade path compatibility
+├── UpgradeTest.php             # Upgrade pipeline tests
+├── UploadSecurityTest.php      # Upload security tests
 └── VersionConsistencyTest.php  # VERSION / config-sample / release-notes consistency
 ```
 
@@ -106,7 +133,9 @@ The runner (`tests/run.php`) loads all `*Test.php` files, collects the registere
 
 ### Special case: DatabaseMatrixTest.php
 
-`DatabaseMatrixTest.php` does not use `register_tests()`. Instead it calls `register_database_matrix_tests()` at the bottom, which adds tests directly to the suite via `$suite->addTest()`. This is because the same test functions are executed multiple times, once per database driver (SQLite, optionally MySQL/MariaDB).
+`DatabaseMatrixTest.php` does not use `register_tests()`. Instead it calls `register_database_matrix_tests()` at the bottom, which registers each test through `$suite->addTestFactory()`, not `$suite->addTest()`. This is because the same test functions are executed multiple times, once per database driver (SQLite, optionally MySQL/MariaDB).
+
+The file also refuses direct execution: running `php tests/DatabaseMatrixTest.php` exits with an error. It only registers tests, so it must be run through `php tests/run.php` (optionally with `DB_DRIVER=mysql`).
 
 ### Helper functions
 
@@ -143,8 +172,8 @@ $t->assertInstanceOf('description', 'ClassName', $object);
 $t->assertThrows('description', function() { throw new Exception('test'); });
 $t->assertNotThrows('description', function() { /* no exception */ });
 
-// Custom predicate
-$t->assertThat('description', function($v) { return $v > 0; }, $value);
+// Custom predicate: assertThat(string $desc, callable $callable, callable $predicate)
+$t->assertThat('value is positive', fn() => $value, fn($v) => $v > 0);
 
 // Run and print results
 $t->run();
@@ -412,52 +441,70 @@ function test_download_hidden_thread_guest_forbidden(): Test
 
 ## Test Count
 
-The suite contains test cases across the following files. The exact count depends on whether `DatabaseMatrixTest.php` runs once (SQLite only) or twice (SQLite + MySQL/MariaDB).
+`php tests/run.php --list` currently reports **517 tests over 54 files**. Of those, **470 test functions are core** (`tests/*Test.php`, 53 files) and `plugins/editbored` contributes **47** (`plugins/editbored/tests/EditboredPluginTest.php`).
 
-| File | Registered Tests | Notes |
-|---|---|---|
-| `DbQueryTest.php` | 9 | Query builder |
-| `E2eFlowTest.php` | 5 | End-to-end flows |
-| `PluginManagerTest.php` | 14 | Hook system, lifecycle & rollback |
-| `AuthTest.php` | 6 | Auth, permissions, CSRF |
-| `MigratorTest.php` | 7 | Migration engine |
-| `SecurityTest.php` | 7 | CSRF rotation, Request, audit log |
-| `ResponseTest.php` | 9 | Response object + Request |
-| `UpgradeTest.php` | 4 | Upgrade pipeline |
-| `AuthHardeningTest.php` | 7 | Auth hardening |
-| `ContentHardeningTest.php` | 9 | Content hardening |
-| `RendererTest.php` | 4 | Template engine |
-| `ModerationTest.php` | 11 | Moderation actions |
-| `ModerationHandlerTest.php` | 6 | Moderation handler integration |
-| `DatabaseMatrixTest.php` | 9 | Cross-database (SQLite) |
-| `PluginRouterTest.php` | 4 | Plugin routing |
-| `RegistrationTest.php` | 15 | Registration & login |
-| `InstallerTest.php` | 11 | Installer |
-| `SecurityHardeningTest.php` | 14 | Security hardening |
-| `ContentCrudTest.php` | 14 | Content CRUD |
-| `E2eIntegrationTest.php` | 7 | E2E flows |
-| `DatabaseIntegrityTest.php` | 11 | Database integrity |
-| `SuggestedTest.php` | 10 | Edge cases |
-| `UpdateManagerTest.php` | 16 | Updater |
-| `UpdateFailureModeTest.php` | 15 | Update failure modes |
-| `SecurityFixesTest.php` | 26 | Security fixes |
-| `PluginThemeTest.php` | 22 | Plugins & themes |
-| `EmailSecurityTest.php` | 14 | Email security |
-| `EndpointAuthorizationTest.php` | 14 | Endpoint authorization |
-| `SessionSecurityTest.php` | 12 | Session security |
-| `UploadSecurityTest.php` | 14 | Upload security |
-| `TelemetryTest.php` | 6 | Anonymous install heartbeat |
-| `VersionConsistencyTest.php` | 1 | Version consistency |
-| **Total (core, SQLite)** | | **358 test functions** |
+| File | Registered Tests |
+|---|---|
+| `ApiInstallAuthorizationTest.php` | 3 |
+| `AtomicFileTest.php` | 4 |
+| `AuthHardeningTest.php` | 8 |
+| `AuthTest.php` | 6 |
+| `BootstrapIntegrationTest.php` | 3 |
+| `ContentConcurrencyTest.php` | 2 |
+| `ContentCrudTest.php` | 14 |
+| `ContentHardeningTest.php` | 9 |
+| `CoreZipUpdateTest.php` | 6 |
+| `DatabaseIntegrityTest.php` | 11 |
+| `DatabaseMatrixTest.php` | 9 |
+| `DbQuerySecurityTest.php` | 5 |
+| `DbQueryTest.php` | 11 |
+| `E2eFlowTest.php` | 5 |
+| `E2eIntegrationTest.php` | 7 |
+| `EmailSecurityTest.php` | 14 |
+| `EndpointAuthorizationTest.php` | 14 |
+| `HelpersTest.php` | 15 |
+| `InstallerTest.php` | 11 |
+| `MarkdownTest.php` | 6 |
+| `MigrationRecoveryTest.php` | 7 |
+| `MigratorTest.php` | 7 |
+| `ModerationHandlerTest.php` | 6 |
+| `ModerationTest.php` | 11 |
+| `MySqlDialectTest.php` | 7 |
+| `PackageInstallerAdversarialTest.php` | 5 |
+| `PluginManagerTest.php` | 14 |
+| `PluginRouterTest.php` | 4 |
+| `PluginThemeTest.php` | 22 |
+| `PrereleasePolicyTest.php` | 6 |
+| `RateLimitTest.php` | 5 |
+| `RawSqlPolicyTest.php` | 1 |
+| `RegistrationTest.php` | 16 |
+| `ReleasePackageTest.php` | 3 |
+| `RendererTest.php` | 4 |
+| `ResponseTest.php` | 9 |
+| `RouteAuthorizationTest.php` | 7 |
+| `SecurityFixesTest.php` | 26 |
+| `SecurityHardeningTest.php` | 16 |
+| `SecurityTest.php` | 7 |
+| `SessionFreshnessTest.php` | 7 |
+| `SessionSecurityTest.php` | 12 |
+| `SessionVersionPolicyTest.php` | 2 |
+| `SmtpProtocolTest.php` | 10 |
+| `SuggestedTest.php` | 10 |
+| `TelemetryTest.php` | 10 |
+| `UpdateBackupTest.php` | 14 |
+| `UpdateFailureModeTest.php` | 15 |
+| `UpdateManagerTest.php` | 22 |
+| `UpgradeCompatibilityTest.php` | 3 |
+| `UpgradeTest.php` | 4 |
+| `UploadSecurityTest.php` | 14 |
+| `VersionConsistencyTest.php` | 1 |
+| **Core total** | **470** |
+| `plugins/editbored/tests/EditboredPluginTest.php` | 47 |
+| **Total** | **517** |
 
-The counts above reflect the number of registered **core** test functions
-(test suites shipped inside plugins under `plugins/*/tests/` add more, e.g.
-`plugins/editbored` contributes 47). Each test runs multiple assertions: the
-current suite reports **1305 assertions, 0 failures** with `php tests/run.php`
-on a PHP build with all required extensions. The exact count depends on whether
-`DatabaseMatrixTest.php` runs once (SQLite only) or again per service database.
-Run `php tests/run.php --list` to enumerate the registered tests for your
-checkout.
+Each test runs multiple assertions, so the assertion count is larger and depends on the environment. The exact number of registered tests also depends on whether `DatabaseMatrixTest.php` runs once (SQLite only) or again per service database. Run `php tests/run.php --list` to enumerate the registered tests for your checkout.
+
+`tests/bootstrap.php` points `db_path` at a temporary file (`<tempDir>/data/db.sqlite`) and uses a file-backed SQLite database, not `sqlite::memory:`. Individual tests may still create their own in-memory database for isolation.
 
 ## Integration tests
 
@@ -475,17 +522,21 @@ CLI suite skips because of the `BULLETIN_TEST_MODE` early return:
 
 `php tests/run.php --coverage` prints line coverage using **Xdebug** (executable
 lines) or **PCOV** (executed lines) when available, and otherwise a
-dependency-free report of which `src/` files the suite loaded. The CI `coverage`
-job installs PCOV and runs this automatically.
+dependency-free report of which `src/` and `lib/` files the suite loaded.
+Coverage spans both trees. With a driver, `--min-coverage=N` fails the run when
+overall line coverage is below the threshold and `--min-area-coverage=N` fails
+it when a critical area (authentication and sessions, authorization, updates,
+packages and extensions, migrations and install) drops below its threshold. The
+CI `coverage` job installs PCOV and runs this automatically.
 
 ## Database Matrix
 
-The `DatabaseMatrixTest.php` tests compatibility across database engines:
+The `DatabaseMatrixTest.php` tests compatibility across database engines. It refuses direct execution, so always run it through `tests/run.php`:
 
 | Database | Status | How to Test |
 |---|---|---|
-| SQLite | ✓ Always tested | `php tests/DatabaseMatrixTest.php` |
-| MySQL 8.0 / 8.4 | ✓ When available | `DB_DRIVER=mysql php tests/DatabaseMatrixTest.php` |
+| SQLite | ✓ Always tested | `php tests/run.php DatabaseMatrix` |
+| MySQL 8.0 / 8.4 | ✓ When available | `DB_DRIVER=mysql php tests/run.php DatabaseMatrix` |
 | MariaDB 10.6 / 10.11 / 11.4 | ✓ When available | Same as MySQL (driver auto-detects) |
 
 ### Running Locally with MySQL
@@ -495,7 +546,7 @@ The `DatabaseMatrixTest.php` tests compatibility across database engines:
 docker run -d --name mysql-test -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=bulletinbored_test -p 3306:3306 mysql:8.0
 
 # Run tests
-DB_DRIVER=mysql DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=bulletinbored_test DB_USER=root DB_PASS=root php tests/DatabaseMatrixTest.php
+DB_DRIVER=mysql DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=bulletinbored_test DB_USER=root DB_PASS=root php tests/run.php DatabaseMatrix
 
 # Cleanup
 docker stop mysql-test && docker rm mysql-test

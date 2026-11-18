@@ -35,9 +35,9 @@ Edit `config.json` to customize your installation.
     "cookie_secure": true,
     "email_notifications": true,
     "version": "1.0.0",
-    "plugin_manifest": "__DIR__/data/plugins.json",
-    "theme_manifest": "__DIR__/data/themes.json",
-    "update_manifest": "__DIR__/data/updates.json",
+    "plugin_manifest": "/var/www/bulletinbored/data/plugins.json",
+    "theme_manifest": "/var/www/bulletinbored/data/themes.json",
+    "update_manifest": "/var/www/bulletinbored/data/updates.json",
     "update_server": "https://github.com/bulletinbored/bulletinbored-core",
     "update_mirror": "https://extend.bulletinbored.net",
     "allow_prerelease_updates": false,
@@ -51,7 +51,7 @@ Edit `config.json` to customize your installation.
 }
 ```
 
-`db_path` must be a real absolute path: the runtime does not expand `__DIR__`. When you use the web installer it resolves the path for you and writes the server path to `config.json`. The same applies to the `*_manifest` paths shown above.
+`db_path` and the `*_manifest` paths must be real absolute paths: the runtime does not expand `__DIR__`. The example above uses `/var/www/bulletinbored`; replace it with your installation path. When you use the web installer it resolves the database path for you and writes the server path to `config.json`.
 
 ## Version
 

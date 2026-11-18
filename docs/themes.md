@@ -4,62 +4,45 @@ description: bulletinbored documentation
 ---
 # Themes
 
-Create themes as subdirectories in `themes/` with a `manifest.json` and a `style.css` file. Themes are distributed via ZIP packages or through the admin catalog.
+Create themes as subdirectories in `themes/` with a `style.css` file and an optional `manifest.json`. Themes are distributed via ZIP packages or through the admin catalog.
 
 ## Theme Conventions
 
-- **Folder-based theme**: a subdirectory in `themes/` with a `manifest.json` and a `style.css` file (e.g., `themes/freshbored/`)
-- The `style.css` file must contain theme metadata at the top (e.g., theme name, version, author)
+- **Folder-based theme**: a subdirectory in `themes/` with a `style.css` file (e.g., `themes/freshbored/`)
+- `manifest.json` is optional metadata; `style.css` is the only file the core loads
+- A theme is discovered only when its folder contains `style.css`
+- The core loads the active theme's stylesheet through `views/header.php`; theme templates, layouts and language files are not loaded by the core
 
 ## Theme Metadata
 
-Themes use `manifest.json` for metadata:
+Themes use `manifest.json` for metadata. `ThemeManager::parseThemeManifest()` reads `manifest.json` only; metadata comments in `style.css` are not parsed.
 
 ```json
 {
-    "id": "freshbored",
-    "name": "FreshBored",
-    "version": "1.0.0",
+    "name": "freshbored",
+    "version": "1.0.7",
     "author": "mlzog",
     "description": "Default frontend theme for bulletinbored. Bootstrap 5 based, sidebar driven discussion layout.",
-    "requires": {
-        "core": ">=0.6"
-    },
     "files": [
         "style.css",
         "manifest.json",
-        "layout/default.php"
+        "README.md",
+        "LICENSE"
     ]
 }
 ```
 
-And `style.css` must contain:
-
-```
-/*
-Theme Name: freshbored
-Theme Version: 1.0.0
-Theme Author: mlzog
-Theme Description: Default frontend theme for bulletinbored
-*/
-```
+Only `name`, `version`, `author` and `description` are displayed metadata. A `requires.core` field is not read by theme install or update, so it is not enforced; use the plugin manifest if you need a core-version constraint.
 
 ## Directory Structure
 
 ```
 themes/
-├── freshbored/                 # Example theme
+├── freshbored/                 # Default theme
+│   ├── LICENSE
+│   ├── README.md
 │   ├── manifest.json           # Optional: theme metadata
-│   ├── style.css               # Required: theme styles (must contain metadata at top)
-│   ├── layout/
-│   │   └── default.php
-│   ├── assets/
-│   │   ├── css/
-│   │   │   └── style.css
-│   │   └── js/
-│   │       └── main.js
-│   └── lang/
-│       └── en.json              # Optional: translations
+│   └── style.css               # Required: theme styles
 └── someother/                  # Another example theme
 ```
 
@@ -68,7 +51,7 @@ themes/
 To distribute a theme as a ZIP package:
 
 1. Package your theme so that the theme folder is at the root of the ZIP
-2. The folder should contain `style.css` and optional `manifest.json` at the root
+2. The folder must contain `style.css` at its root; `manifest.json` is optional
 3. Upload via **Admin Panel → Themes → Install Theme**
 
 Recommended ZIP layout:
@@ -78,24 +61,17 @@ freshbored-1.0.0.zip
 ├── freshbored/
 │   ├── style.css
 │   ├── manifest.json
-│   ├── layout/
-│   │   └── default.php
-│   ├── assets/
-│   │   ├── css/
-│ │   │   └── style.css
-│   │   └── js/
-│   │       └── main.js
-│   └── lang/
-│       └── en.json
+│   ├── README.md
+│   └── LICENSE
 ```
 
 The installer automatically detects the theme folder and installs it.
 
 ## Managing Themes
 
-- **Enable / Disable**: toggle theme state without deleting files
-- **Delete**: removes the theme files (protected: `freshbored` cannot be deleted)
-- **Activate**: set as active theme
+- **Activate**: `activate($name)` sets the active theme; there is no separate enable/disable state
+- **Delete**: `delete($name)` removes the theme files (protected: `freshbored` cannot be deleted)
+- **Remove missing**: `removeMissing()` drops records for theme folders that no longer contain `style.css`
 - **Install**: upload a ZIP or install from the catalog/repository. Both paths stage the package, run the same validation (including the `files` integrity list when `theme_verify_files` is enabled), and only then commit it, so the previous theme is never removed before the replacement is validated.
 - **Update**: the Update Manager can apply new versions as ZIP packages. Updates go through `ThemeManager::updateFromZip()`: the current theme folder is moved to a backup, the new ZIP is extracted and verified, and the backup is removed only on success. On any failure the backup is restored and the original theme is left untouched.
 
@@ -104,17 +80,10 @@ The installer automatically detects the theme folder and installs it.
 ```
 themes/
 └── freshbored/
-    ├── style.css
+    ├── LICENSE
+    ├── README.md
     ├── manifest.json
-    ├── layout/
-    │   └── default.php
-    ├── assets/
-    │   ├── css/
-    │   │   └── style.css
-    │   └── js/
-    │       └── main.js
-    └── lang/
-        └── en.json
+    └── style.css
 ```
 
 ## File Integrity Verification (New)
@@ -136,8 +105,8 @@ If you encounter a malicious or problematic theme, please report it on the offic
 
 ## Relationship with the Hook System
 
-Themes are presentation only: they ship `style.css`, a `layout/` template, and optional `assets/` and `lang/`. A theme is **not** loaded as executable PHP, so it cannot register hooks or run backend logic on its own.
+Themes are presentation only. The core includes the active theme's `style.css` from `views/header.php`; it does not include theme PHP, a theme layout, or theme-provided templates. A theme is therefore **not** loaded as executable PHP and cannot register hooks or run backend logic on its own.
 
 The hook/event system is part of the **Plugin** API, not the theme API. Plugins register callbacks via `PluginManager::addHook($event, $callback)` and react to core events such as `before_render`, `frontend_before_render`, `admin_before_render`, `footer_before_render`, and `user_registered`. If you need to trigger behavior when one of these events fires, build a plugin rather than a theme.
 
-This means a theme can only influence what is rendered by editing its templates and styles — any dynamic reaction to forum events must be implemented in a plugin that hooks into the active theme's output.
+This means a theme can only influence presentation through its stylesheet; any dynamic reaction to forum events must be implemented in a plugin.

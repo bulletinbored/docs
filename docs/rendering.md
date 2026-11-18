@@ -35,11 +35,13 @@ For already-sanitized HTML (like rendered Markdown):
 
 ### Partials
 
-Include reusable template fragments:
+Include reusable template fragments with `partial()`, which returns the rendered string:
 
 ```php
-<?= $this->renderPartial('sidebar', ['categories' => $categories]) ?>
+<?= $this->partial('sidebar', ['categories' => $categories]) ?>
 ```
+
+`renderPartial($name, $data)` is a thin wrapper that echoes `partial()` and returns `void`, so it is not suitable inside an `<?= ?>` expression. Both helpers look for `views/partials/<name>.php`.
 
 ### Components
 
@@ -122,7 +124,7 @@ views/
 │   ├── post.php           # Single post display
 │   └── thread_modals.php  # Moderation dialogs
 ├── thread-clean.php       # Clean thread template using components
-└── header.php             # Legacy header (shared)
+└── header.php             # Shared header defining render_header() and render_footer()
 ```
 
 ### Example Component (`views/components/post.php`)

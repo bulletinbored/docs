@@ -46,21 +46,21 @@ Folder-based plugins use `manifest.json` with the following schema:
 
 | Field | Required | Description |
 |---|---|---|
-| `id` | Yes | Stable identifier (lowercase alphanumeric + hyphens). Never changes even if name/author change. |
+| `id` | No | Stable identifier (lowercase alphanumeric + hyphens). Derived from `name` when absent. Never changes even if name/author change. |
 | `name` | Yes | Display name |
 | `version` | Yes | Semver version string |
 | `author` | No | Author name |
 | `description` | No | Short description |
 | `core` | No | Version constraint on the bulletinbored core (e.g. `">=0.6 <1.0.0"`) |
 | `php` | No | PHP version constraint (e.g. `">=8.1"`) |
-| `dependencies` | No | Object mapping plugin IDs to semver constraints. Supports `>=`, `<=`, `>`, `<`, `==`, `!=` (e.g. `{"other-plugin": ">=1.0.0 <2.0.0"}`) |
+| `dependencies` | No | Object mapping plugin IDs to semver constraints. Supports `>=`, `<=`, `>`, `<`, `==`, `!=` (e.g. `{"other-plugin": ">=1.0.0 <2.0.0"}`). Checked when the plugin is enabled, not at install/update time. |
 | `permissions` | No | Array of permission strings the plugin needs |
-| `routes` | No | Array of custom route definitions |
+| `routes` | No | Array of custom route definitions (documentation only; routes are registered in code) |
 | `events` | No | Array of event subscriptions (documentation only) |
 | `bootstrap` | No | Bootstrap filename (defaults to `<id>.php`) |
-| `files` | No | Array of files for integrity verification. When `plugin_verify_files` is enabled, files present but undeclared are rejected, and files declared but missing are rejected. Repo-only paths that GitHub source archives add automatically (`tests/`, `.github/`, `.gitignore`, `composer.*`, `phpunit.xml*`, `.editorconfig`, `.travis.yml`) are ignored by the check and stripped from the deployed package, so you do not list them. |
+| `files` | No | Array of files for integrity verification. When `plugin_verify_files` is enabled, files present but undeclared are rejected, and files declared but missing are rejected. Repo-only paths that GitHub source archives add automatically (`tests/`, `.github/`, `.gitignore`, `.gitattributes`, `composer.*`, `phpunit.xml*`, `.editorconfig`, `.travis.yml`) are ignored by the check and stripped from the deployed package, so you do not list them. |
 
-The manifest is validated at install time. Plugins with incompatible core/PHP versions, unmet dependencies, or manifest schema errors are rejected. Install and update run the same validation pipeline.
+Manifest validation at install/update checks the schema fields that `PluginManifest::validateManifest()` handles: `id`, `name`, `version`, `core`, `php`, `permissions` and `bootstrap`. It does not validate `dependencies`, `files`, `routes` or `events`. The package pipeline separately enforces a required `name` and `version`, the core and PHP constraints, and, when enabled, the `files` integrity list. A plugin with unmet dependencies is not rejected at install or update time: `checkDependencies()` runs when the plugin is enabled.
 
 ### Legacy format (file-based plugins)
 
@@ -277,7 +277,7 @@ plugins/
 │   │       └── hellobored.js   # Example logic
 │   ├── upload.php              # Optional: custom endpoint
 │   ├── lang/
-│   │   └── en.php              # Optional: translations
+│   │   └── en.json             # Optional: translations
 │   └── vendor/                 # Optional: third-party assets
 └── someplugin.php              # Example file-based plugin
 ```
@@ -344,7 +344,7 @@ The core fires these events around install, update, enable, disable, and uninsta
 Plugins can opt in to install-time, update-time, and uninstall-time work by defining these functions in their bootstrap file. They are called inside a `try/catch`, so a failure is logged; whether it also aborts the operation depends on the hook:
 
 - **`on_install` / `on_update`** — a throw aborts the install/update and triggers the full rollback (previous files, `installed.json` and the backup are restored). Keep them safe and idempotent.
-- **`on_uninstall` / `cleanup` / `migration_rollback`** — a throw is logged but does not block the uninstall.
+- **`on_uninstall` / `cleanup` / `migration_rollback`** — a throw is logged but does not block the uninstall. `<key>_migration_rollback()` runs only when `uninstall($name, true)` is requested. The admin delete action calls `uninstall($pluginName)` with the default `false`, so the admin delete path does not run it.
 
 | Function | When |
 |---|---|
@@ -352,7 +352,7 @@ Plugins can opt in to install-time, update-time, and uninstall-time work by defi
 | `<key>_on_update()` | After a successful update (migrations, data backfill, ...) |
 | `<key>_on_uninstall()` | After the plugin has been disabled, before its files are deleted |
 | `<key>_cleanup()` | Runs after files are removed (drop temp tables, clear caches) |
-| `<key>_migration_rollback()` | Runs after `cleanup()` (revert DB migrations introduced by the plugin) |
+| `<key>_migration_rollback()` | Runs after `cleanup()` only when `uninstall($name, true)` is requested (revert DB migrations introduced by the plugin); the admin delete action does not request it |
 
 Example: define `on_uninstall` to drop plugin-specific tables.
 
@@ -379,8 +379,8 @@ plugins/
     │   │   └── myplugin.css
     │   └── js/
     │       └── myplugin.js
-└── lang/
-    └── en.json
+    └── lang/
+        └── en.json
 ```
 
 
@@ -442,15 +442,20 @@ Avoid inline event handlers (`onclick`, `onload`, ...); they are blocked by the 
 
 ## Architecture
 
-The plugin system is split across three classes:
+The plugin system is split across the `PluginManager` facade, four cohesive traits, a discovery class and the shared package installer:
 
-| Class | File | Responsibility |
+| Class / trait | File | Responsibility |
 |---|---|---|
-| `PluginManager` | `lib/PluginManager.php` | Orchestration: hooks, enable/disable, lifecycle, settings, router |
+| `PluginManager` | `lib/PluginManager.php` | Facade: composition, discovery, load-enabled, settings, router |
+| `PluginHooks` | `lib/PluginManager/PluginHooks.php` | Hook registry and execution (actions, filters, checks) |
+| `PluginManifest` | `lib/PluginManager/PluginManifest.php` | Manifest validation, version constraints, plugin state |
+| `PluginDependencies` | `lib/PluginManager/PluginDependencies.php` | Dependency resolution, cycle detection, enable/disable cascades |
+| `PluginPackages` | `lib/PluginManager/PluginPackages.php` | Install, update, uninstall and delete operations |
 | `PluginDiscovery` | `lib/PluginDiscovery.php` | Filesystem scanning, metadata/manifest parsing |
 | `PackageInstaller` | `lib/PackageInstaller.php` | ZIP extraction, file verification, atomic install |
+| `repo_install` | `lib/repo_install.php` | Repository package download helpers used by install-from-repo |
 
-`PluginManager` delegates filesystem operations to `PluginDiscovery` and installation to `PackageInstaller`.
+`PluginManager` composes the four traits, delegates filesystem operations to `PluginDiscovery`, installation to `PackageInstaller` and repository downloads to `lib/repo_install.php`. Repository archives are stripped of repo-only paths (`.git/`, `.github/`, `tests/`, `.gitignore`, `.gitattributes`, `.editorconfig`, `composer.json`/`composer.lock`, `phpunit.xml*`, `.travis.yml`) before deployment.
 
 ## Plugin Manager API
 
@@ -490,7 +495,8 @@ $pluginManager->installFromRepo('https://github.com/user/repo', 'v1.0.0'); // St
 $pluginManager->installFromZip('/path/to/plugin.zip');                  // Fresh install via ZIP. Detects name from manifest.
 $pluginManager->installFromZip('/path/to/v2.zip', 'myplugin', true);     // Update in place (replaces existing folder)
 $pluginManager->updateFromZip('myplugin', '/path/to/v2.zip');           // Convenience wrapper for update
-$pluginManager->uninstall('myplugin');  // disable → on_uninstall → remove files → cleanup → migration_rollback
+$pluginManager->uninstall('myplugin');       // disable → on_uninstall → remove files → cleanup (no migration_rollback)
+$pluginManager->uninstall('myplugin', true); // ...and then migration_rollback
 $pluginManager->recoverPlugin('myplugin');  // Disable a failed plugin
 
 // Failure recovery

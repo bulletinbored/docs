@@ -73,7 +73,7 @@ The Plugin Manager lists all discovered plugins, shows their metadata (name, ver
    }
   ```
 - Plugin state is stored in `data/plugins.json`
-- Install plugins directly from the dashboard by uploading a ZIP file containing one or more PHP plugin files
+- Install plugins by uploading a single ZIP package that contains a plugin folder with `manifest.json` and its bootstrap. Admin uploads and catalog/repository installs use the same package/manifest pipeline; a ZIP is not treated as a collection of loose PHP files.
 - Delete plugins directly from the dashboard
 
 ## Hook System
@@ -169,15 +169,16 @@ The UpdateManager tracks installed versions of the core, plugins, and themes, an
 
 ### Architecture
 
-The update system is split across three classes:
+The update system is split across four classes:
 
 | Class | File | Responsibility |
 |---|---|---|
 | `UpdateManager` | `lib/UpdateManager.php` | Orchestration: version tracking, checkAll, applyUpdate |
 | `UpdateFetcher` | `lib/UpdateFetcher.php` | HTTP requests, caching, remote version fetching |
-| `UpdateBackup` | `lib/UpdateBackup.php` | Core backup/restore, recursive copy/delete |
+| `UpdateBackup` | `lib/UpdateBackup.php` | Core backup/restore, recursive copy/delete, backup manifests |
+| `AtomicFile` | `lib/AtomicFile.php` | Verified atomic writes for `data/updates.json`, `VERSION` and `config.json` |
 
-`UpdateManager` delegates HTTP/cache operations to `UpdateFetcher` and backup operations to `UpdateBackup`.
+`UpdateManager` delegates HTTP/cache operations to `UpdateFetcher`, backup operations to `UpdateBackup` and metadata writes to `AtomicFile`.
 
 ### API
 
@@ -203,6 +204,9 @@ $updateManager->backupCore();
 $updateManager->restoreCoreBackup($path);
 $updateManager->listBackups();
 
+// Catalog (auto-refreshing, falls back to the local cache)
+$catalog = $updateManager->getCatalog($forceRefresh = false, $ttl = 3600);
+
 // Remote version (direct)
 $version = $updateManager->getRemoteVersion('plugin', 'myplugin', $repoUrl);
 ```
@@ -222,19 +226,44 @@ $errors = $updateManager->preflight('core', '1.0.0');
 - `listBackups()` — lists available backups (keeps last 3)
 - Failed core updates automatically restore the backup
 
+Backup integrity rules:
+
+- The manifest (`data/backups/core_*.json`) is written only after every entry has been copied. A backup without a valid `complete` manifest is listed with `complete: false` and is never used to prune files during a restore.
+- Hidden files are included. `listEntries()` and `deleteRecursive()` use `scandir()` rather than `glob('*')`, so `.htaccess` and other dotfiles are backed up and restored.
+- Symlinks are recorded but never followed or copied.
+- Restore boundaries: a restore copies the backed-up entries back, then removes top-level entries that were created by the failed update. Pruning happens only when a valid manifest exists; with an incomplete backup the restore copies files back and leaves everything else in place.
+
+### Atomic metadata writes
+
+`UpdateManager` writes `data/updates.json`, `VERSION` and `config.json` through `lib/AtomicFile.php`. The content goes to a temporary file in the same directory, the exact byte count and (for JSON) the encoded content are verified, and only then is the target replaced with `rename()`. A failed write leaves the previous file untouched; credential-bearing `config.json` defaults to mode `0600`. This is why a core update can report a metadata failure instead of claiming success after a short write.
+
 ### Version tracking
 
 - Version tracking is stored in `data/updates.json`
-- Core version is loaded dynamically from the `VERSION` file via `config.json`
+- Core version is read from `config.json`; the installer and updater write that value from `VERSION`
 - Remote update checks require setting `"update_server"` in `config.json`
+
+### Prerelease updates
+
+Prereleases are opt-in. Set `allow_prerelease_updates` to `true` in `config.json` to receive release candidates. `UpdateManager::isPrerelease()` treats a SemVer suffix after the patch number (`1.0.0-rc.1`, `1.0.0-beta.2`) as a prerelease; build metadata alone (`1.0.0+build`) is not one. `isUpdateAllowed()` only offers a remote version that is strictly newer, and it rejects a prerelease when the installation is stable unless the administrator opted in. An installation already running a prerelease may follow the next prerelease. Stable installations are therefore never offered RC builds.
 
 ### Core updates
 
 If `update_server` points to a GitHub repository, the Update Manager uses the GitHub Releases API to discover the latest version automatically. No `versions.json` is required.
 
+A core update runs the same safety pipeline for both the GitHub download and a manually uploaded core ZIP:
+
+1. **Preflight**: checks PHP 8.1+, free disk space, root writability and `config.json` writability (`preflight()`).
+2. **Verified backup**: `UpdateBackup::backupCore()` copies the installation (excluding `data`, `plugins`, `themes`, `uploads`, `vendor`, `config.json`, `config.php`) into `data/backups/core_*`. A backup is only valid when it completes: a JSON manifest next to the directory records `complete: true` and the entries it contains. A failed or short write removes the partial backup and its manifest instead of leaving a half backup behind.
+3. **Copy or extract**: the package is copied over the installation. Any failure during the copy or the nested-directory flattening restores the backup before reporting failure.
+4. **Metadata finalization**: the new version is written to `data/updates.json`, `VERSION` and `config.json` (or the legacy `config.php`) through atomic writes. The update is reported as successful only when every metadata write verifies; otherwise the failure is logged with the exact step.
+5. **Installer cleanup**: `install.php`, `install2.php` and `install3.php` are removed after a core update. `api/install.php` is deliberately kept: it is the runtime admin endpoint used to install plugins and themes from the catalog, protected by a database-backed administrator check.
+
 ### Plugin and theme updates
 
 Plugins and themes are checked against the repositories listed in `data/catalog.json`. If a catalog entry includes a `repo` URL pointing to GitHub, the Update Manager queries the GitHub Releases API for the latest tag.
+
+`getCatalog($forceRefresh = false, $ttl = 3600)` refreshes the local cache from `{update_mirror}/catalog.json` when the cache is missing or older than the TTL, and falls back to the local cache when the mirror is unreachable. `applyExtensionUpdate()` uses that refreshed catalog to resolve a repository, then falls back to the `repo` recorded in `data/installed.json` at install time. This lets updates work for an extension installed from a repository that is no longer in the catalog.
 
 Each catalog entry can carry two flags:
 
@@ -263,7 +292,7 @@ If `update_server` is not a GitHub URL, the Update Manager falls back to fetchin
 
 ### Applying updates
 
-- Core updates are downloaded automatically from GitHub releases and extracted into the forum root.
+- Core updates are downloaded automatically from GitHub releases or uploaded as a ZIP, then installed through the preflight, verified-backup, copy, rollback and metadata-finalization pipeline described above. Both routes share `completeCoreUpdate()` and `finalizeCoreUpdate()`.
 - Plugin and theme updates can be downloaded automatically from GitHub if a `repo` URL is defined in `catalog.json`.
 - Installing an extension from a repository (catalog or `installFromRepo()`) uses the same pipeline as a ZIP install: the package is downloaded into a staging directory and validated (manifest plus core/PHP constraints and, when enabled, the `files` integrity list) before the existing directory is moved aside and the staged package swapped in. Reinstalling over an existing plugin also runs `plugin_updated` / `on_update` and rolls back files plus the `installed.json` record on failure.
 - ZIP upload via the admin panel is supported for plugin/theme updates.
@@ -290,4 +319,4 @@ If `update_server` is not a GitHub URL, the Update Manager falls back to fetchin
 
   > **Rollback is filesystem-only.** If a lifecycle hook fails, the previous files and `installed.json` record are restored, but database changes the hook already performed are **not** automatically reverted. Plugin authors should keep migrations idempotent or provide their own rollback.
 
-- **`core`** — Extracts into the forum root (legacy behavior for manual core ZIP uploads)
+- **`core`** — Both the GitHub download (`applyCoreUpdate()`) and a manual core ZIP (`applyUpdate('core', ...)`, `applyCoreUpdateFromZip()`) run preflight, a verified backup, copy/extract with rollback on failure, metadata finalization and installer-script cleanup. A core ZIP is not simply extracted over the forum root.

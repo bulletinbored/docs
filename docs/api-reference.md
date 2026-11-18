@@ -4,7 +4,7 @@ description: Public APIs available to plugins and themes — helpers, hooks, man
 ---
 # API Reference
 
-**Updated:** 2026-09-25 (version 0.9.0)
+**Updated:** 2026-11-18 (version 1.0.0)
 
 This page inventories the public APIs a plugin or theme may legitimately call.
 It is the basis for **Plugin API v1**. Function file paths are given without line
@@ -13,18 +13,25 @@ numbers because they drift; see the file for exact signatures.
 ## 1. Global helpers
 
 Global helpers are loaded by `src/helpers.php`, which pulls the modules from
-`src/Helpers/`, plus CSRF/rate-limit helpers from `src/Security.php` and CSP
-helpers from `src/csp.php`.
+`src/Helpers/`, plus CSRF/rate-limit helpers from `src/Security.php`. The CSP
+helpers in `src/csp.php` are loaded separately by `src/bootstrap.php:68`, not by
+`helpers.php`.
 
 ### URL & routing — `src/Helpers/Url.php`
 
 | Function | Signature |
 |----------|-----------|
 | `url()` | `url(string $action, array $params = [], bool $absolute = false): string` |
-| `base_url()` | `base_url(): string` |
 | `current_route_action()` | `current_route_action(): string` |
-| `redirect()` | `redirect(string $url): Response` |
 | `slugify()` | `slugify(string $text): string` |
+
+`redirect()` (line 31) and `base_url()` (line 38) live in `src/helpers.php`, not
+in `src/Helpers/Url.php`.
+
+| Function | Signature |
+|----------|-----------|
+| `redirect()` | `redirect(string $url, int $status = 302): \Bulletin\Response` |
+| `base_url()` | `base_url(): string` |
 
 ### Translation & i18n — `src/bootstrap.php`
 
@@ -69,7 +76,8 @@ double-encoded titles such as `we're`.)
 |----------|-----------|
 | `generate_csp_nonce()` | `generate_csp_nonce(): string` |
 | `csp_nonce()` | `csp_nonce(): string` |
-| `send_security_headers()` | `send_security_headers(string $nonce): void` |
+| `send_security_headers()` | `send_security_headers(string $nonce, array $config = [], ?bool $isHttps = null): void` |
+| `build_hsts_header()` | `build_hsts_header(array $config = []): ?string` |
 
 ### Session & auth state — `src/Helpers/AuthHelpers.php`
 
@@ -258,13 +266,24 @@ PDO wrapper with SQLite/MySQL normalization: `__construct()`, `exec()`,
 ### `DbQuery` — `lib/DbQuery.php`
 
 Lightweight query builder: `table()`, `select()`, `where()`, `whereIn()`,
-`whereRaw()`, `orderBy()`, `limit()`, `offset()`, `get()`, `first()`,
+`whereNull()`, `whereNotNull()`, `whereBetween()`, `whereRaw()`, `join()`,
+`leftJoin()`, `orderBy()`, `limit()`, `offset()`, `get()`, `first()`,
 `count()`, `insert()`, `insertIgnore()`, `update()`, `delete()`, `raw()`,
 `rawFirst()`, `rawExec()`, `exists()`, `pluck()`, `paginate()`.
 
+Identifiers (table, column and join names) and `select()` column expressions
+are checked against an allow-list pattern, and `where()` operators
+are limited to `=`, `!=`, `<>`, `<`, `<=`, `>`, `>=`, `LIKE`, `NOT LIKE`, `IS`
+and `IS NOT`. Invalid input throws `InvalidArgumentException` (`lib/DbQuery.php:38,55-100,196-252`). `where()` rewrites a `null` value with `=`/`IS`
+to `IS NULL` and with `!=`/`<>`/`IS NOT` to `IS NOT NULL`. `count()` counts the
+rows returned by the query, so with a join it counts joined rows rather than
+distinct rows of the main table (`lib/DbQuery.php:330-344`).
+
 ## 6. Request (`Bulletin\Request`) — `src/Request.php`
 
-`get()`, `post()`, `input()`, `has()`, `raw()`, `sanitize()` (static).
+`get()`, `post()`, `input()`, `has()`, `raw()`, `sanitize()` (static), plus the
+typed getters `string()`, `int()`, `bool()`, `email()` and `enum()`
+(`src/Request.php:98-147`).
 
 ## 7. Router (`Bulletin\Router`) — `src/Router.php`
 
@@ -282,7 +301,13 @@ Lightweight query builder: `table()`, `select()`, `where()`, `whereIn()`,
 
 `setVersion()`, `getVersion()`, `recordCheck()`, `getAvailableUpdate()`,
 `checkAll()`, `applyUpdate()`, `applyCoreUpdate()`, `applyExtensionUpdate()`,
-`getRemoteVersion()`, `getLockedExtensions()`.
+`getRemoteVersion()`, `getLockedExtensions()`, `preflight()`, `getCatalog()`.
+
+Prerelease handling: `setAllowPrerelease()`, `allowsPrerelease()`,
+`isPrerelease()` (static), and `isUpdateAllowed(string $installed, ?string $remote): bool`
+(`lib/UpdateManager.php:41-95,241-307,802-836`). A prerelease is only offered
+when the installation already runs a prerelease or the administrator enabled
+`allow_prerelease_updates`.
 
 Extension updates are **delegated** to the owning manager: `applyExtensionUpdate()` and the ZIP-upload path of `applyUpdate()` call `PluginManager::updateFromZip()` for plugins and `ThemeManager::updateFromZip()` for themes, so the Update Manager does not run its own install pipeline. See [Managers → Applying updates](managers.md#applying-updates).
 
@@ -293,10 +318,34 @@ Extension updates are **delegated** to the owning manager: `applyExtensionUpdate
 `getPending()`, `getNextBatch()`, `getLastBatch()`, `getMigrationsByBatch()`,
 `getBatchFor()`, `runUp()`, `runDown()`, `rollbackByName()`.
 
-## 11. Application state (`App`) — `src/App.php`
+Recovery API (`lib/Migrator.php:320-359,459-505`):
+`getInterruptedMigrations()`, `isInterrupted(string $name)`,
+`forgetInterrupted(string $name)` and `recoverInterrupted(string $name, ?int $batch = null)`.
+An interrupted non-core migration is only retried automatically when its
+migration class implements `isIdempotent(): bool` and returns `true`; otherwise
+`runUp()` throws an actionable `RuntimeException` and the operator must repair
+the schema and call `recoverInterrupted()` or `forgetInterrupted()`.
 
-The shared application state lives in `App::getInstance()` instead of global
-variables:
+## 11. AdminAuth (`AdminAuth`) — `lib/AdminAuth.php`
+
+Database-backed verification for endpoints that bypass `src/bootstrap.php`
+(most notably `api/install.php`):
+
+| Method | Signature |
+|--------|-----------|
+| `connect()` | `connect(array $config): PDO` |
+| `verifySession()` | `verifySession(PDO $pdo, array $session): ?array` |
+
+`verifySession()` rejects a missing user id or `session_version`, a deleted
+account, a stale `session_version` (role/status/password changed), a current
+role other than `admin`, and banned or still-suspended accounts. `api/install.php`
+uses both methods, requires a CSRF token and is rate-limited to 20 requests per
+hour (`api/install.php:44-67`).
+
+## 12. Application state (`App`) — `src/App.php`
+
+The shared application state primarily lives in `App::getInstance()` (a few
+legacy globals remain in the bootstrap, header view and `AuthZ`):
 
 | Property | Description |
 |----------|-------------|
@@ -305,13 +354,16 @@ variables:
 | `authz` | `AuthZ` service. |
 | `i18n` | Translation registry (core + `plugin:<name>` + `theme:<name>` scopes). |
 | `pluginManager` | `PluginManager` instance (when wired by `index.php`). |
-| `forwardedProto` / `forwardedSsl` | Validated proxy headers. |
+| `themeManager` | `ThemeManager` instance. |
+| `updateManager` | `UpdateManager` instance. |
+| `cspNonce` | Per-request CSP nonce. |
+| `forwardedProto` / `forwardedSsl` / `forwardedFor` | Validated proxy headers. |
 
 > Older plugins that used `global $pdo, $config, $pluginManager` still work
 > because `index.php` defines those variables, but new code should use
 > `App::getInstance()`.
 
-## 12. Plugin initialisation convention
+## 13. Plugin initialisation convention
 
 A plugin defines an init function named after its key:
 
@@ -327,14 +379,28 @@ function myplugin_init() {
 `PluginManager::loadEnabled()` includes the bootstrap file and calls
 `<key>_init()` automatically.
 
-## 13. Changes in 0.9.0 relevant to plugin authors
+## 14. Changes in 1.0.0 relevant to plugin authors
 
-- `user_has_permission()` removed — use `AuthZ`.
-- `notify_mentioned_users()` gained an `int $authorId` parameter and now creates
-  in-app notifications (not just e-mail).
-- Page routes `/watch`, `/unwatch`, `/logout` are POST-only.
-- Inline `style="…"` attributes are allowed (`style-src-attr 'unsafe-inline'`),
-  but injected `<style>` blocks and non-allow-listed stylesheets are blocked by
-  CSP.
+- `DbQuery` validates table and column identifiers and the `where()`/join
+  operators against an allow-list; invalid input throws
+  `InvalidArgumentException`. `select()` no longer accepts expressions or
+  functions: use `raw()`/`rawFirst()` for those (`lib/DbQuery.php`).
+- New `DbQuery` methods: `join()`, `leftJoin()`, `whereNull()`,
+  `whereNotNull()`, `whereBetween()`. With a join, `count()` counts joined rows,
+  not distinct rows of the main table.
+- `user_has_permission()` removed, use `AuthZ`.
+- Page routes `/watch`, `/unwatch` and `/logout` are POST-only. Added
+  `POST /logout-others` and the admin `POST /admin/disconnect-user`.
+- Role, status, ban, suspend and password changes bump `users.session_version`,
+  so existing sessions are invalidated and must log in again.
+- Plugin migrations interrupted on a driver without transactional DDL are only
+  retried automatically when the migration class implements
+  `isIdempotent(): bool`; use `recoverInterrupted()` or `forgetInterrupted()`
+  after a manual repair (`lib/Migrator.php`).
+- Extension `core` constraints are matched against the base version, so a
+  plugin declaring `"core": ">=1.0.0"` can be tested on `1.0.0-rc.1`.
+- `api/install.php` is a runtime admin endpoint, not an installer. It verifies
+  the administrator against the database with `AdminAuth`, requires a CSRF
+  token and is rate-limited to 20 requests per hour.
 - `PluginManager` was split into traits; all previously public methods remain
   available through the facade.
